@@ -189,46 +189,54 @@ let openProfileId = null;
 function renderProfile(personId) {
   const person = personById(personId);
   const content = document.getElementById("profile-content");
-  if (!person) { content.innerHTML = ""; return; }
+  if (!content) return;
+  if (!person) {
+    content.innerHTML = `<p class="hint">Không tìm thấy dữ liệu người này (id: "${personId}"). Hãy đóng cửa sổ này, tải lại trang (Ctrl+F5) rồi thử lại nhé.</p>`;
+    return;
+  }
 
-  const modeLabel = { normal: "Bình thường", exam: "📚 Đang ôn thi", free: "🌿 Đang rảnh" };
-  const progress = computeProgress(personId);
-  const lines = buildAiLines(personId);
+  try {
+    const modeLabel = { normal: "Bình thường", exam: "📚 Đang ôn thi", free: "🌿 Đang rảnh" };
+    const progress = computeProgress(personId);
+    const lines = buildAiLines(personId);
 
-  const todayBlock = progress.todayPct === null
-    ? `<div class="stat-value">—</div><div class="stat-detail">Hôm nay không có việc nào được giao.</div>`
-    : `<div class="stat-value">${progress.todayPct.toFixed(0)}%</div><div class="stat-detail">Đã hoàn thành ${progress.todayDoneCount} được giao hôm nay.</div>`;
+    const todayBlock = progress.todayPct === null
+      ? `<div class="stat-value">—</div><div class="stat-detail">Hôm nay không có việc nào được giao.</div>`
+      : `<div class="stat-value">${progress.todayPct.toFixed(0)}%</div><div class="stat-detail">Đã hoàn thành ${progress.todayDoneCount} được giao hôm nay.</div>`;
 
-  const weekBlock = progress.weekPct === null
-    ? `<div class="stat-value">—</div><div class="stat-detail">Tuần này chưa có việc nào được giao.</div>`
-    : `<div class="stat-value">${progress.weekPct.toFixed(0)}%</div><div class="stat-detail">Còn khoảng ${progress.weekRemainingPct.toFixed(0)}% để đủ chỉ tiêu tuần (không bị tính nợ thêm).</div>`;
+    const weekBlock = progress.weekPct === null
+      ? `<div class="stat-value">—</div><div class="stat-detail">Tuần này chưa có việc nào được giao.</div>`
+      : `<div class="stat-value">${progress.weekPct.toFixed(0)}%</div><div class="stat-detail">Còn khoảng ${progress.weekRemainingPct.toFixed(0)}% để đủ chỉ tiêu tuần (không bị tính nợ thêm).</div>`;
 
-  content.innerHTML = `
-    <div class="profile-head">
-      <span class="profile-dot" style="background:${person.color}"></span>
-      <div>
-        <h3>${person.name}</h3>
-        <span class="mode-badge ${person.mode}">${modeLabel[person.mode]}</span>
+    content.innerHTML = `
+      <div class="profile-head">
+        <span class="profile-dot" style="background:${person.color}"></span>
+        <div>
+          <h3>${person.name}</h3>
+          <span class="mode-badge ${person.mode}">${modeLabel[person.mode]}</span>
+        </div>
       </div>
-    </div>
-    <div class="profile-stats">
-      <div class="stat-block">
-        <div class="stat-label">Hôm nay đã làm</div>
-        ${todayBlock}
+      <div class="profile-stats">
+        <div class="stat-block">
+          <div class="stat-label">Hôm nay đã làm</div>
+          ${todayBlock}
+        </div>
+        <div class="stat-block">
+          <div class="stat-label">Tiến độ tuần này</div>
+          ${weekBlock}
+        </div>
       </div>
-      <div class="stat-block">
-        <div class="stat-label">Tiến độ tuần này</div>
-        ${weekBlock}
+      <div class="ai-box">
+        <div class="ai-avatar">🧊</div>
+        <div class="ai-bubble">
+          <strong>Tuyết AI gợi ý cho ${person.name}</strong>
+          ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
+        </div>
       </div>
-    </div>
-    <div class="ai-box">
-      <div class="ai-avatar">🧊</div>
-      <div class="ai-bubble">
-        <strong>Tuyết AI gợi ý cho ${person.name}</strong>
-        ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
-      </div>
-    </div>
-  `;
+    `;
+  } catch (err) {
+    content.innerHTML = `<p class="hint">Có lỗi khi hiển thị hồ sơ: ${err.message}. Hãy đóng cửa sổ này, tải lại trang (Ctrl+F5) rồi thử lại — và cho mình biết nếu vẫn gặp lỗi này nhé.</p>`;
+  }
 }
 
 function openProfile(personId) {
