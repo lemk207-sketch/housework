@@ -63,6 +63,184 @@ function fmtDateLabel(isoStr) {
   const [, m, d] = isoStr.split("-");
   return `${d}/${m}`;
 }
+function todayIso() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// ============================================================
+// TUYẾT AI — tính tiến độ & gợi ý bù nợ cho từng người, dựa hoàn toàn
+// trên dữ liệu đã có (việc được giao + đánh dấu đã xong + sổ nợ chung).
+// Đây là "AI" theo kiểu luật/gợi ý thông minh, không gọi dịch vụ ngoài.
+// ============================================================
+function computeProgress(personId) {
+  const today = todayIso();
+  const todayIdx = state.weekDates.indexOf(today);
+
+  let todayTotal = 0, todayDone = 0;
+  let weekTotal = 0, weekDone = 0;
+
+  state.tasks.forEach(t => {
+    if (t.personId !== personId) return;
+    t.days.forEach(dayIdx => {
+      const dateStr = state.weekDates[dayIdx];
+      if (!dateStr) return;
+      const done = !!(state.completions[dateStr] && state.completions[dateStr][t.id]);
+      weekTotal += t.weight;
+      if (done) weekDone += t.weight;
+      if (dayIdx === todayIdx) {
+        todayTotal += t.weight;
+        if (done) todayDone += t.weight;
+      }
+    });
+  });
+
+  return {
+    todayPct: todayTotal > 0 ? (todayDone / todayTotal) * 100 : null,
+    todayDoneCount: todayTotal > 0 ? `${todayDone}/${todayTotal} điểm việc` : null,
+    weekPct: weekTotal > 0 ? (weekDone / weekTotal) * 100 : null,
+    weekRemainingPct: weekTotal > 0 ? Math.max(0, 100 - (weekDone / weekTotal) * 100) : null,
+  };
+}
+
+function upcomingUndone(personId) {
+  const today = todayIso();
+  const list = [];
+  state.tasks.forEach(t => {
+    if (t.personId !== personId) return;
+    t.days.forEach(dayIdx => {
+      const dateStr = state.weekDates[dayIdx];
+      if (!dateStr || dateStr < today) return;
+      const done = !!(state.completions[dateStr] && state.completions[dateStr][t.id]);
+      if (!done) list.push({ task: t, dateStr, dayIdx });
+    });
+  });
+  list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  return list;
+}
+
+function buildAiLines(personId) {
+  const person = personById(personId);
+  const progress = computeProgress(personId);
+  const balance = person.balanceWeeks;
+  const lines = [];
+
+  // 1) Tiến độ tuần này so với chỉ tiêu (= hoàn thành đủ việc được giao)
+  if (progress.weekPct === null) {
+    lines.push(`${person.name} hiện chưa được giao việc nào trong tuần này.`);
+  } else if (progress.weekRemainingPct < 1) {
+    lines.push(`Tuần này ${person.name} đã hoàn thành <strong>100%</strong> việc được giao — quá đỉnh, cứ giữ vững phong độ này nhé! 🎉`);
+  } else {
+    const next = upcomingUndone(personId)[0];
+    lines.push(`Tuần này ${person.name} đã xong khoảng <strong>${progress.weekPct.toFixed(0)}%</strong> việc được giao, còn khoảng <strong>${progress.weekRemainingPct.toFixed(0)}%</strong> nữa để đủ chỉ tiêu (không bị tính nợ thêm).`);
+    if (next) {
+      lines.push(`👉 Gợi ý: làm "<strong>${next.task.name}</strong>" vào ${DAY_FULL[next.dayIdx]} (${fmtDateLabel(next.dateStr)}) trước nhé.`);
+    }
+  }
+
+  // 2) Sổ nợ chung — gợi ý cách bù nếu đang nợ
+  if (balance < -0.05) {
+    const owe = Math.abs(balance);
+    const helper = [...state.people].filter(p => p.id !== personId).sort((a, b) => b.balanceWeeks - a.balanceWeeks)[0];
+    let helpLine = `📒 ${person.name} đang <strong>nợ khoảng ${owe.toFixed(1)} tuần</strong> việc nhà.`;
+    if (helper) {
+      const h = upcomingUndone(helper.id)[0];
+      if (h) {
+        helpLine += ` Để bù dần, có thể chủ động làm giúp "<strong>${h.task.name}</strong>" (việc của ${helper.name}) vào ${DAY_FULL[h.dayIdx]} (${fmtDateLabel(h.dateStr)}).`;
+      } else {
+        helpLine += ` Để bù dần, hãy chủ động nhận thêm việc giúp ${helper.name} trong vài ngày tới nhé.`;
+      }
+    }
+    lines.push(helpLine);
+  } else if (balance > 0.05) {
+    lines.push(`📒 ${person.name} hiện đang <strong>dư khoảng ${balance.toFixed(1)} tuần</strong> — đã làm nhiều hơn phần của mình, cả nhà đang ghi nhận đó! Cứ duy trì nhịp độ bình thường là ổn.`);
+  } else {
+    lines.push(`📒 Sổ nợ chung của ${person.name} đang <strong>cân bằng</strong> — không nợ, không dư.`);
+  }
+
+  return lines;
+}
+
+function renderAiBoard() {
+  const wrap = document.getElementById("ai-board");
+  if (!wrap) return;
+  wrap.innerHTML = state.people.map(p => {
+    const lines = buildAiLines(p.id).slice(0, 2);
+    return `
+      <div class="ai-card" style="--p-color:${p.color}">
+        <div class="ai-avatar">🧊</div>
+        <div>
+          <div class="ai-name">${p.name}</div>
+          ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ============================================================
+// HỒ SƠ CÁ NHÂN — bấm vào một người để xem % hôm nay/tuần này + Tuyết AI
+// ============================================================
+let openProfileId = null;
+
+function renderProfile(personId) {
+  const person = personById(personId);
+  const content = document.getElementById("profile-content");
+  if (!person) { content.innerHTML = ""; return; }
+
+  const modeLabel = { normal: "Bình thường", exam: "📚 Đang ôn thi", free: "🌿 Đang rảnh" };
+  const progress = computeProgress(personId);
+  const lines = buildAiLines(personId);
+
+  const todayBlock = progress.todayPct === null
+    ? `<div class="stat-value">—</div><div class="stat-detail">Hôm nay không có việc nào được giao.</div>`
+    : `<div class="stat-value">${progress.todayPct.toFixed(0)}%</div><div class="stat-detail">Đã hoàn thành ${progress.todayDoneCount} được giao hôm nay.</div>`;
+
+  const weekBlock = progress.weekPct === null
+    ? `<div class="stat-value">—</div><div class="stat-detail">Tuần này chưa có việc nào được giao.</div>`
+    : `<div class="stat-value">${progress.weekPct.toFixed(0)}%</div><div class="stat-detail">Còn khoảng ${progress.weekRemainingPct.toFixed(0)}% để đủ chỉ tiêu tuần (không bị tính nợ thêm).</div>`;
+
+  content.innerHTML = `
+    <div class="profile-head">
+      <span class="profile-dot" style="background:${person.color}"></span>
+      <div>
+        <h3>${person.name}</h3>
+        <span class="mode-badge ${person.mode}">${modeLabel[person.mode]}</span>
+      </div>
+    </div>
+    <div class="profile-stats">
+      <div class="stat-block">
+        <div class="stat-label">Hôm nay đã làm</div>
+        ${todayBlock}
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">Tiến độ tuần này</div>
+        ${weekBlock}
+      </div>
+    </div>
+    <div class="ai-box">
+      <div class="ai-avatar">🧊</div>
+      <div class="ai-bubble">
+        <strong>Tuyết AI gợi ý cho ${person.name}</strong>
+        ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function openProfile(personId) {
+  openProfileId = personId;
+  renderProfile(personId);
+  document.getElementById("profile-overlay").hidden = false;
+}
+
+function closeProfile() {
+  openProfileId = null;
+  document.getElementById("profile-overlay").hidden = true;
+}
 
 // ============================================================
 // RENDER: 1) Mọi người & chế độ + Sổ nợ chung
@@ -113,11 +291,12 @@ function renderPeople() {
       : "";
 
     return `
-      <div class="person-card" style="--p-color:${p.color}">
+      <div class="person-card" style="--p-color:${p.color}" data-action="open-profile" data-person="${p.id}">
         <div class="person-head">
           <span class="person-name">${p.name}</span>
           <span class="mode-badge ${p.mode}">${modeLabel[p.mode]}</span>
         </div>
+        <p class="person-open-hint">👆 Bấm để xem hôm nay/tuần này đã làm bao nhiêu % &amp; lời khuyên từ Tuyết AI</p>
         <div class="mode-buttons">
           <button data-action="mode" data-person="${p.id}" data-mode="normal" class="${p.mode === "normal" ? "active normal" : ""}">Bình thường</button>
           <button data-action="mode" data-person="${p.id}" data-mode="exam"   class="${p.mode === "exam"   ? "active exam"   : ""}">📚 Bận thi</button>
@@ -237,10 +416,12 @@ function renderSchedule() {
 
 function renderAll() {
   renderPeople();
+  renderAiBoard();
   renderLedger();
   renderTaskList();
   renderPercentBars();
   renderSchedule();
+  if (openProfileId) renderProfile(openProfileId);
 }
 
 // ============================================================
@@ -337,6 +518,14 @@ async function submitTaskForm() {
   }
 }
 
+document.getElementById("profile-close").addEventListener("click", closeProfile);
+document.getElementById("profile-overlay").addEventListener("click", e => {
+  if (e.target.id === "profile-overlay") closeProfile();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && openProfileId) closeProfile();
+});
+
 showFormBtn.addEventListener("click", () => openTaskForm(null));
 document.getElementById("f-cancel").addEventListener("click", closeTaskForm);
 taskForm.addEventListener("submit", e => { e.preventDefault(); submitTaskForm(); });
@@ -381,6 +570,8 @@ document.addEventListener("click", async e => {
       await refresh();
       return;
     }
+
+    if (action === "open-profile") { openProfile(btn.dataset.person); return; }
 
     if (action === "edit-task") { openTaskForm(btn.dataset.task); return; }
 

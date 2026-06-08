@@ -22,7 +22,11 @@
         <strong>Đang rảnh 🌿</strong>: có thể nhận thêm việc (mặc định 50–70%) — hệ thống ghi nhận phần "làm dư"
         để <em>bù vào những lúc thiếu hụt</em> của cả nhà.
       </p>
+      <p class="hint">Bấm vào một người để xem hôm nay/tuần này đã làm được bao nhiêu % và lời khuyên từ Tuyết AI 🧊.</p>
       <div class="people-grid" id="people-grid"></div>
+
+      <h3>🧊 Tuyết AI gợi ý hôm nay</h3>
+      <div class="ai-board" id="ai-board"></div>
 
       <h3>📒 Sổ nợ chung</h3>
       <p class="hint">Đơn vị: "tuần làm việc nhà bình thường". Số dương = đã làm dư (đang được ghi công), số âm = đang nợ.</p>
@@ -97,6 +101,13 @@
       </div>
     </section>
   </main>
+
+  <div class="profile-overlay" id="profile-overlay" hidden>
+    <div class="profile-modal">
+      <button type="button" class="profile-close" id="profile-close" aria-label="Đóng">✕</button>
+      <div id="profile-content"></div>
+    </div>
+  </div>
 
   <footer>
     <p id="footer-status">Đang kết nối tới server…</p>
