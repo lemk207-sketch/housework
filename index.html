@@ -85,6 +85,7 @@
     <section class="card">
       <h2>3. Tỉ trọng khối lượng việc hiện tại</h2>
       <p class="hint">Tính trực tiếp từ danh sách đầu việc &amp; người phụ trách ở trên — đổi việc là % đổi theo ngay.</p>
+      <div class="percent-donuts" id="percent-donuts"></div>
       <div class="bars" id="percent-bars"></div>
       <div class="legend" id="percent-legend"></div>
     </section>
@@ -102,9 +103,11 @@
     </section>
   </main>
 
-  <div class="profile-overlay" id="profile-overlay" hidden>
-    <div class="profile-modal">
-      <button type="button" class="profile-close" id="profile-close" aria-label="Đóng">✕</button>
+  <div class="profile-page" id="profile-overlay" hidden>
+    <div class="profile-page-inner">
+      <button type="button" class="profile-back" id="profile-close">
+        <span aria-hidden="true">←</span> Quay lại lịch việc nhà
+      </button>
       <div id="profile-content"></div>
     </div>
   </div>

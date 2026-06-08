@@ -41,6 +41,38 @@ async function refresh() {
   renderAll();
 }
 
+// Khung xương chờ dữ liệu — hiện ngay khi mở trang, thay vì để khoảng trắng trống trơn
+// trong lúc chờ gọi /api/state lần đầu.
+function showSkeletons() {
+  const row = (w = "70%") => `<div class="skeleton skeleton-line" style="width:${w}"></div>`;
+  const grid = document.getElementById("people-grid");
+  if (grid) {
+    grid.innerHTML = Array.from({ length: 3 }).map(() => `
+      <div class="skeleton skeleton-row"></div>
+    `).join("");
+  }
+  const ai = document.getElementById("ai-board");
+  if (ai) ai.innerHTML = `<div class="skeleton skeleton-row" style="height:90px"></div>`;
+  const ledger = document.getElementById("ledger");
+  if (ledger) {
+    ledger.innerHTML = Array.from({ length: 3 }).map(() => `
+      <div class="skeleton skeleton-row" style="height:40px"></div>
+    `).join("");
+  }
+  const taskList = document.getElementById("task-list");
+  if (taskList) {
+    taskList.innerHTML = Array.from({ length: 4 }).map(() => `
+      <div class="skeleton skeleton-row" style="height:48px"></div>
+    `).join("");
+  }
+  const donuts = document.getElementById("percent-donuts");
+  if (donuts) {
+    donuts.innerHTML = Array.from({ length: 3 }).map(() => `
+      <div class="skeleton" style="width:120px; height:120px; border-radius:50%; margin:auto"></div>
+    `).join("");
+  }
+}
+
 function setFooterStatus(text, isError) {
   const el = document.getElementById("footer-status");
   el.textContent = text;
@@ -53,6 +85,67 @@ function setFooterStatus(text, isError) {
 function personById(id) { return state.people.find(p => p.id === id); }
 function otherNames(personId) {
   return state.people.filter(p => p.id !== personId).map(p => p.name).join(" & ");
+}
+
+// Avatar: lấy chữ cái đầu của tên gọi (bỏ qua "Chị"/"Em" để ra chữ đặc trưng — VD "Chị Nấm" → "N")
+function personInitial(name) {
+  const words = name.trim().split(/\s+/);
+  const skip = new Set(["chị", "em", "anh", "bé"]);
+  const main = words.find(w => !skip.has(w.toLowerCase())) || words[words.length - 1];
+  return main.charAt(0).toUpperCase();
+}
+function avatarHTML(person, size = "md") {
+  return `<span class="avatar avatar-${size}" style="--avatar-color:${person.color}">${personInitial(person.name)}</span>`;
+}
+
+// Donut: vòng tròn % bằng CSS conic-gradient thuần — dùng chung cho mục Tỉ trọng & Hồ sơ cá nhân
+function donutHTML({ percent, color, caption = "", size = "", extraClass = "", title = "" }) {
+  const pct = Math.max(0, Math.min(100, percent || 0));
+  const sizeClass = size ? `donut-${size}` : "";
+  return `
+    <div class="donut ${sizeClass} ${extraClass}" style="--pct:${pct}; --donut-color:${color}" ${title ? `title="${title}"` : ""}>
+      <div class="donut-label">
+        <span class="donut-pct">${pct.toFixed(0)}%</span>
+        ${caption ? `<span class="donut-caption">${caption}</span>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 7 NGÀY TRONG TUẦN — dữ liệu cho timeline & "chuỗi ngày hoàn thành" (streak)
+// ============================================================
+function computeWeekTimeline(personId) {
+  const today = todayIso();
+  return state.weekDates.map((dateStr, dayIdx) => {
+    let total = 0, done = 0;
+    state.tasks.forEach(t => {
+      if (t.personId !== personId || !t.days.includes(dayIdx)) return;
+      total += t.weight;
+      if (state.completions[dateStr] && state.completions[dateStr][t.id]) done += t.weight;
+    });
+    return {
+      dateStr, dayIdx, total, done,
+      pct: total > 0 ? (done / total) * 100 : null,
+      isToday: dateStr === today,
+      isFuture: dateStr > today,
+    };
+  });
+}
+
+// Số ngày liên tục (tính tới hôm nay, lùi về đầu tuần) mà người này hoàn thành 100% việc được giao.
+// Ngày không được giao việc nào thì bỏ qua, không tính cũng không phá chuỗi.
+function computeStreak(personId) {
+  const timeline = computeWeekTimeline(personId);
+  let streak = 0;
+  for (let i = timeline.length - 1; i >= 0; i--) {
+    const day = timeline[i];
+    if (day.isFuture) continue;
+    if (day.total === 0) continue;
+    if (day.pct === 100) streak++;
+    else break;
+  }
+  return streak;
 }
 function fmtDays(days) {
   if (days.length === 7) return "Hằng ngày";
@@ -173,7 +266,7 @@ function renderAiBoard() {
       <div class="ai-card" style="--p-color:${p.color}">
         <div class="ai-avatar">🧊</div>
         <div>
-          <div class="ai-name">${p.name}</div>
+          <div class="ai-name">${avatarHTML(p, "sm")} ${p.name}</div>
           ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
         </div>
       </div>
@@ -186,12 +279,48 @@ function renderAiBoard() {
 // ============================================================
 let openProfileId = null;
 
+function dayCellHTML(person, day) {
+  let note, miniDonut;
+  if (day.total === 0) {
+    note = "Không có việc";
+    miniDonut = `<div class="donut donut-sm" style="--pct:0; --donut-color:#e6e2da"><div class="donut-label"><span class="donut-pct">–</span></div></div>`;
+  } else if (day.isFuture) {
+    note = `${day.total} điểm việc`;
+    miniDonut = donutHTML({ percent: 0, color: "#d8d2c6", size: "sm" });
+  } else {
+    note = day.pct === 100 ? "✓ Xong hết" : `${Math.round(day.pct)}% xong`;
+    miniDonut = donutHTML({ percent: day.pct, color: person.color, size: "sm" });
+  }
+  return `
+    <div class="day-cell-card ${day.isToday ? "is-today" : ""}">
+      <span class="day-cell-label">${DAY_SHORT[day.dayIdx]}${day.isToday ? " 👈" : ""}</span>
+      ${miniDonut}
+      <span class="day-cell-note">${note}</span>
+    </div>
+  `;
+}
+
+function streakBadgeHTML(person, streak) {
+  if (streak <= 0) {
+    return `
+      <div class="streak-badge zero">
+        <span class="streak-flame">💤</span>
+        <span>Chưa có chuỗi ngày hoàn thành nào trong tuần này — bắt đầu ngay hôm nay để mở chuỗi mới nhé, ${person.name}!</span>
+      </div>`;
+  }
+  return `
+    <div class="streak-badge">
+      <span class="streak-flame">🔥</span>
+      <span><strong>${streak} ngày liên tục</strong> ${person.name} hoàn thành đủ 100% việc được giao — giữ vững phong độ này nhé!</span>
+    </div>`;
+}
+
 function renderProfile(personId) {
   const person = personById(personId);
   const content = document.getElementById("profile-content");
   if (!content) return;
   if (!person) {
-    content.innerHTML = `<p class="hint">Không tìm thấy dữ liệu người này (id: "${personId}"). Hãy đóng cửa sổ này, tải lại trang (Ctrl+F5) rồi thử lại nhé.</p>`;
+    content.innerHTML = `<p class="hint">Không tìm thấy dữ liệu người này (id: "${personId}"). Hãy bấm "Quay lại", tải lại trang (Ctrl+F5) rồi thử lại nhé.</p>`;
     return;
   }
 
@@ -199,33 +328,75 @@ function renderProfile(personId) {
     const modeLabel = { normal: "Bình thường", exam: "📚 Đang ôn thi", free: "🌿 Đang rảnh" };
     const progress = computeProgress(personId);
     const lines = buildAiLines(personId);
+    const timeline = computeWeekTimeline(personId);
+    const streak = computeStreak(personId);
 
-    const todayBlock = progress.todayPct === null
-      ? `<div class="stat-value">—</div><div class="stat-detail">Hôm nay không có việc nào được giao.</div>`
-      : `<div class="stat-value">${progress.todayPct.toFixed(0)}%</div><div class="stat-detail">Đã hoàn thành ${progress.todayDoneCount} được giao hôm nay.</div>`;
+    const fair = (state.shares[person.id] && state.shares[person.id].percent) || 0;
+    let statusLine;
+    if (person.mode === "exam" && person.modeDetail) {
+      statusLine = `Đang ở chế độ <strong>Bận thi 📚</strong> — nhận khoảng <strong>${person.modeDetail.percent}%</strong> khối lượng trong <strong>${person.modeDetail.weeks} tuần</strong>, phần còn lại ${otherNames(person.id)} chia nhau gánh.`;
+    } else if (person.mode === "free" && person.modeDetail) {
+      statusLine = `Đang ở chế độ <strong>Đang rảnh 🌿</strong> — nhận thêm tới <strong>${person.modeDetail.percent}%</strong> khối lượng trong <strong>${person.modeDetail.weeks} tuần</strong>, phần dư dùng để bù nợ chung.`;
+    } else {
+      statusLine = `Theo lịch bình thường — đảm nhận khoảng <strong>${fair.toFixed(1)}%</strong> tổng khối lượng việc nhà mỗi tuần.`;
+    }
 
-    const weekBlock = progress.weekPct === null
-      ? `<div class="stat-value">—</div><div class="stat-detail">Tuần này chưa có việc nào được giao.</div>`
-      : `<div class="stat-value">${progress.weekPct.toFixed(0)}%</div><div class="stat-detail">Còn khoảng ${progress.weekRemainingPct.toFixed(0)}% để đủ chỉ tiêu tuần (không bị tính nợ thêm).</div>`;
+    const bal = person.balanceWeeks;
+    let balCls = "even", balNote = "Đang cân bằng — không nợ, không dư.";
+    if (bal > 0.05)       { balCls = "credit"; balNote = "Đã làm dư so với phần của mình — sẽ được tính bù khi cần."; }
+    else if (bal < -0.05) { balCls = "debt";   balNote = "Đang nợ phần việc — sẽ được bù dần ở những tuần sau."; }
+
+    const todayDetail = progress.todayPct === null
+      ? "Hôm nay không có việc nào được giao."
+      : `Đã hoàn thành ${progress.todayDoneCount} được giao hôm nay.`;
+    const weekDetail = progress.weekPct === null
+      ? "Tuần này chưa có việc nào được giao."
+      : `Còn khoảng ${progress.weekRemainingPct.toFixed(0)}% nữa để đủ chỉ tiêu tuần (không bị tính nợ thêm).`;
 
     content.innerHTML = `
-      <div class="profile-head">
-        <span class="profile-dot" style="background:${person.color}"></span>
+      <div class="profile-hero" style="--p-color:${person.color}">
+        ${avatarHTML(person, "xl")}
         <div>
-          <h3>${person.name}</h3>
+          <h2 class="profile-name">${person.name}</h2>
           <span class="mode-badge ${person.mode}">${modeLabel[person.mode]}</span>
+          <p class="profile-status-line">${statusLine}</p>
         </div>
       </div>
-      <div class="profile-stats">
-        <div class="stat-block">
-          <div class="stat-label">Hôm nay đã làm</div>
-          ${todayBlock}
+
+      <p class="profile-section-title">Tiến độ làm việc</p>
+      <div class="profile-rings">
+        <div class="ring-card" style="--p-color:${person.color}">
+          ${donutHTML({ percent: progress.todayPct ?? 0, color: person.color, caption: "hôm nay", size: "lg" })}
+          <div class="ring-info">
+            <div class="ring-title">Hôm nay</div>
+            <div class="ring-detail">${todayDetail}</div>
+          </div>
         </div>
-        <div class="stat-block">
-          <div class="stat-label">Tiến độ tuần này</div>
-          ${weekBlock}
+        <div class="ring-card" style="--p-color:${person.color}">
+          ${donutHTML({ percent: progress.weekPct ?? 0, color: person.color, caption: "tuần này", size: "lg" })}
+          <div class="ring-info">
+            <div class="ring-title">Tuần này</div>
+            <div class="ring-detail">${weekDetail}</div>
+          </div>
         </div>
       </div>
+
+      ${streakBadgeHTML(person, streak)}
+
+      <p class="profile-section-title">7 ngày trong tuần này</p>
+      <div class="day-timeline">
+        ${timeline.map(day => dayCellHTML(person, day)).join("")}
+      </div>
+
+      <p class="profile-section-title">Sổ nợ chung</p>
+      <div class="profile-balance-card ${balCls}">
+        ${avatarHTML(person, "md")}
+        <div>
+          <div class="balance-figure">${bal > 0 ? "+" : ""}${bal.toFixed(2)} tuần</div>
+          <div class="balance-note">${balNote}</div>
+        </div>
+      </div>
+
       <div class="ai-box">
         <div class="ai-avatar">🧊</div>
         <div class="ai-bubble">
@@ -235,7 +406,7 @@ function renderProfile(personId) {
       </div>
     `;
   } catch (err) {
-    content.innerHTML = `<p class="hint">Có lỗi khi hiển thị hồ sơ: ${err.message}. Hãy đóng cửa sổ này, tải lại trang (Ctrl+F5) rồi thử lại — và cho mình biết nếu vẫn gặp lỗi này nhé.</p>`;
+    content.innerHTML = `<p class="hint">Có lỗi khi hiển thị hồ sơ: ${err.message}. Hãy bấm "Quay lại", tải lại trang (Ctrl+F5) rồi thử lại — và cho mình biết nếu vẫn gặp lỗi này nhé.</p>`;
   }
 }
 
@@ -243,10 +414,12 @@ function openProfile(personId) {
   openProfileId = personId;
   renderProfile(personId);
   document.getElementById("profile-overlay").hidden = false;
+  document.body.classList.add("profile-open");
 }
 
 function closeProfile() {
   openProfileId = null;
+  document.body.classList.remove("profile-open");
   document.getElementById("profile-overlay").hidden = true;
 }
 
@@ -301,7 +474,10 @@ function renderPeople() {
     return `
       <div class="person-card" style="--p-color:${p.color}" data-action="open-profile" data-person="${p.id}">
         <div class="person-head">
-          <span class="person-name">${p.name}</span>
+          <div class="person-head-left">
+            ${avatarHTML(p, "md")}
+            <span class="person-name">${p.name}</span>
+          </div>
           <span class="mode-badge ${p.mode}">${modeLabel[p.mode]}</span>
         </div>
         <p class="person-open-hint">👆 Bấm để xem hôm nay/tuần này đã làm bao nhiêu % &amp; lời khuyên từ Tuyết AI</p>
@@ -326,7 +502,7 @@ function renderLedger() {
     else if (bal < -0.05) { cls = "debt";   note = "Đang nợ phần việc — sẽ được bù dần ở những tuần sau."; }
     return `
       <div class="ledger-row ${cls}">
-        <div class="l-name">${p.name}</div>
+        <div class="l-name">${avatarHTML(p, "sm")} ${p.name}</div>
         <div class="l-balance">${bal > 0 ? "+" : ""}${bal.toFixed(2)} tuần</div>
         <div class="l-note">${note}</div>
       </div>
@@ -366,8 +542,19 @@ function renderTaskList() {
 // RENDER: 3) Thanh % khối lượng (server tính sẵn từ danh sách việc hiện tại)
 // ============================================================
 function renderPercentBars() {
+  const donuts = document.getElementById("percent-donuts");
   const bars = document.getElementById("percent-bars");
   const legend = document.getElementById("percent-legend");
+
+  donuts.innerHTML = state.people.map(p => {
+    const pct = (state.shares[p.id] && state.shares[p.id].percent) || 0;
+    return `
+      <div class="percent-donut-card">
+        ${donutHTML({ percent: pct, color: p.color, caption: "khối lượng" })}
+        <div class="percent-donut-name">${avatarHTML(p, "sm")} ${p.name}</div>
+      </div>
+    `;
+  }).join("");
 
   bars.innerHTML = state.people.map(p => {
     const pct = (state.shares[p.id] && state.shares[p.id].percent) || 0;
@@ -592,12 +779,21 @@ document.addEventListener("click", async e => {
     }
 
     if (action === "toggle-done") {
+      const date = btn.dataset.date;
+      const taskId = btn.dataset.task;
       await api("/api/completions/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: btn.dataset.date, taskId: btn.dataset.task }),
+        body: JSON.stringify({ date, taskId }),
       });
       await refresh();
+      const newBtn = document.querySelector(
+        `.cross-btn[data-date="${date}"][data-task="${taskId}"]`
+      );
+      if (newBtn) {
+        newBtn.classList.add("just-toggled");
+        newBtn.addEventListener("animationend", () => newBtn.classList.remove("just-toggled"), { once: true });
+      }
       return;
     }
   } catch (err) {
@@ -630,6 +826,7 @@ if (location.protocol === "file:") {
     `Trang này đang được mở trực tiếp từ ổ đĩa (đường dẫn bắt đầu bằng "file://"), nên không gọi được tới server/database.`
   );
 } else {
+  showSkeletons();
   refresh().catch(err => {
     showStartupError(`Không gọi được API (${err.message}). Server có thể chưa chạy — hãy mở terminal tại thư mục dự án và chạy "node server.js".`);
   });
