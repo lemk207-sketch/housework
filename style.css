@@ -855,6 +855,53 @@ body.profile-open { overflow: hidden; }
   transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
 .task-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.task-chip { flex-wrap: wrap; }
+.task-chip.picking { box-shadow: 0 4px 14px rgba(0,0,0,0.16); }
+
+/* Avatar nhỏ gắn lên chip khi người THỰC SỰ làm khác người phụ trách mặc định */
+.doer-badge { display: inline-flex; flex-shrink: 0; }
+.doer-badge .avatar { box-shadow: 0 0 0 2px rgba(255,255,255,0.85); }
+
+/* Bảng nhỏ "Ai đã làm việc này?" — mở ngay tại chỗ trong chip khi đánh dấu xong */
+.doer-picker {
+  flex-basis: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.94);
+  color: var(--text);
+  animation: mode-panel-in 0.18s var(--ease);
+  transform-origin: top;
+}
+.doer-picker-title { display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 6px; }
+.doer-picker-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.doer-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s var(--ease), box-shadow 0.15s;
+}
+.doer-pick-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
+.doer-pick-btn.suggested { border-color: color-mix(in srgb, var(--text) 35%, var(--border)); }
+.doer-picker-cancel {
+  margin-top: 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.doer-picker-cancel:hover { color: var(--text); }
 
 footer #footer-status.error { color: #d8473a; }
 

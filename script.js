@@ -20,6 +20,7 @@ const WEIGHT_LABELS = { 1: "Nhẹ (1đ)", 2: "Vừa (2đ)", 4: "Nặng (4đ)" };
 let state = { people: [], tasks: [], completions: {}, weekStart: "", weekDates: [], shares: {} };
 let editingTaskId = null;   // id việc đang sửa, null = đang thêm mới
 let openModePanel = null;   // { personId, mode } — panel kích hoạt chế độ đang mở
+let doerPickerFor = null;   // { date, taskId } — đang mở bảng chọn "ai đã làm việc này"
 
 async function api(path, options) {
   const res = await fetch(path, options);
@@ -115,12 +116,21 @@ function donutHTML({ percent, color, caption = "", size = "", extraClass = "", t
 // ============================================================
 // 7 NGÀY TRONG TUẦN — dữ liệu cho timeline & "chuỗi ngày hoàn thành" (streak)
 // ============================================================
+// "Người được tính công" cho 1 lần làm việc: nếu đã có người ghi nhận hoàn thành
+// (doneBy) thì tính cho người đó — kể cả khi khác với người phụ trách mặc định
+// (vd: việc của Em Xoài nhưng Chị Nấm rửa giúp thì % cộng cho Chị Nấm).
+// Nếu chưa làm thì vẫn thuộc về người phụ trách (đang "nợ" việc này).
+function creditedPerson(dateStr, task) {
+  const doneBy = state.completions[dateStr] && state.completions[dateStr][task.id];
+  return doneBy || task.personId;
+}
+
 function computeWeekTimeline(personId) {
   const today = todayIso();
   return state.weekDates.map((dateStr, dayIdx) => {
     let total = 0, done = 0;
     state.tasks.forEach(t => {
-      if (t.personId !== personId || !t.days.includes(dayIdx)) return;
+      if (!t.days.includes(dayIdx) || creditedPerson(dateStr, t) !== personId) return;
       total += t.weight;
       if (state.completions[dateStr] && state.completions[dateStr][t.id]) done += t.weight;
     });
@@ -177,10 +187,9 @@ function computeProgress(personId) {
   let weekTotal = 0, weekDone = 0;
 
   state.tasks.forEach(t => {
-    if (t.personId !== personId) return;
     t.days.forEach(dayIdx => {
       const dateStr = state.weekDates[dayIdx];
-      if (!dateStr) return;
+      if (!dateStr || creditedPerson(dateStr, t) !== personId) return;
       const done = !!(state.completions[dateStr] && state.completions[dateStr][t.id]);
       weekTotal += t.weight;
       if (done) weekDone += t.weight;
@@ -590,14 +599,42 @@ function renderSchedule() {
       const chips = tasks.map(t => {
         const person = personById(t.personId);
         const color = person ? person.color : "#ccc";
-        const done = !!(state.completions[dateStr] && state.completions[dateStr][t.id]);
+        const doneBy = state.completions[dateStr] && state.completions[dateStr][t.id];
+        const done = !!doneBy;
+        const doer = done ? personById(doneBy) : null;
+        const pickerOpen = !!(doerPickerFor && doerPickerFor.date === dateStr && doerPickerFor.taskId === t.id);
+
+        // Nếu người THỰC SỰ làm khác với người phụ trách mặc định -> gắn thêm
+        // avatar nhỏ của người đó để biết ngay "ai đã giúp việc này".
+        const helperBadge = (done && doer && doer.id !== t.personId)
+          ? `<span class="doer-badge" title="${doer.name} đã làm việc này">${avatarHTML(doer, "sm")}</span>`
+          : "";
+
+        const picker = pickerOpen ? `
+          <div class="doer-picker">
+            <span class="doer-picker-title">Ai đã làm việc này?</span>
+            <div class="doer-picker-options">
+              ${state.people.map(p => `
+                <button type="button" class="doer-pick-btn ${p.id === t.personId ? "suggested" : ""}"
+                  data-action="pick-doer" data-date="${dateStr}" data-task="${t.id}" data-person="${p.id}">
+                  ${avatarHTML(p, "sm")}
+                  <span>${p.name}${p.id === t.personId ? " (phụ trách)" : ""}</span>
+                </button>
+              `).join("")}
+            </div>
+            <button type="button" class="doer-picker-cancel" data-action="cancel-pick-doer">Huỷ</button>
+          </div>
+        ` : "";
+
         return `
-          <div class="task-chip" style="background:${color}">
+          <div class="task-chip ${pickerOpen ? "picking" : ""}" style="background:${color}">
             <span class="task-name">${t.name}</span>
             <span class="person-name">${person ? person.name : "—"}</span>
+            ${helperBadge}
             <button type="button" class="cross-btn ${done ? "done" : ""}" style="--cross-color:${color}"
               data-action="toggle-done" data-date="${dateStr}" data-task="${t.id}"
-              title="${done ? "Đã xong — bấm để bỏ đánh dấu" : "Bấm để đánh dấu đã xong"}">${done ? "✓" : ""}</button>
+              title="${done ? `Đã xong${doer ? " — " + doer.name : ""} — bấm để bỏ đánh dấu` : "Bấm để đánh dấu đã xong"}">${done ? "✓" : ""}</button>
+            ${picker}
           </div>
         `;
       }).join("");
@@ -781,10 +818,34 @@ document.addEventListener("click", async e => {
     if (action === "toggle-done") {
       const date = btn.dataset.date;
       const taskId = btn.dataset.task;
+
+      if (btn.classList.contains("done")) {
+        // Đang "đã xong" -> bấm lại để bỏ đánh dấu ngay, không cần chọn lại ai
+        await api("/api/completions/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, taskId }),
+        });
+        await refresh();
+        return;
+      }
+
+      // Chưa xong -> mở bảng nhỏ ngay tại chỗ để chọn AI thực sự đã làm việc này
+      // (mặc định gợi ý người phụ trách, nhưng có thể chọn người khác nếu họ làm giúp).
+      doerPickerFor = { date, taskId };
+      renderSchedule();
+      return;
+    }
+
+    if (action === "pick-doer") {
+      const date = btn.dataset.date;
+      const taskId = btn.dataset.task;
+      const doneBy = btn.dataset.person;
+      doerPickerFor = null;
       await api("/api/completions/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, taskId }),
+        body: JSON.stringify({ date, taskId, doneBy }),
       });
       await refresh();
       const newBtn = document.querySelector(
@@ -794,6 +855,12 @@ document.addEventListener("click", async e => {
         newBtn.classList.add("just-toggled");
         newBtn.addEventListener("animationend", () => newBtn.classList.remove("just-toggled"), { once: true });
       }
+      return;
+    }
+
+    if (action === "cancel-pick-doer") {
+      doerPickerFor = null;
+      renderSchedule();
       return;
     }
   } catch (err) {

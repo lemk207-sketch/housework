@@ -48,6 +48,7 @@ function initDb() {
       date TEXT NOT NULL,
       task_id TEXT NOT NULL,
       done INTEGER NOT NULL DEFAULT 1,
+      done_by TEXT,
       PRIMARY KEY (date, task_id)
     );
     CREATE TABLE IF NOT EXISTS meta (
@@ -55,6 +56,18 @@ function initDb() {
       value TEXT
     );
   `);
+
+  // Migration: thêm cột "done_by" (ai THỰC SỰ làm việc này — có thể khác người
+  // phụ trách mặc định) cho database đã tạo từ trước khi có tính năng này.
+  const completionCols = db.prepare("PRAGMA table_info(completions)").all();
+  if (!completionCols.some(c => c.name === "done_by")) {
+    db.exec("ALTER TABLE completions ADD COLUMN done_by TEXT");
+    db.exec(`
+      UPDATE completions
+      SET done_by = (SELECT person_id FROM tasks WHERE tasks.id = completions.task_id)
+      WHERE done = 1 AND done_by IS NULL
+    `);
+  }
 
   const peopleCount = db.prepare("SELECT COUNT(*) AS c FROM people").get().c;
   if (peopleCount === 0) seedDefaults();
@@ -212,14 +225,29 @@ function validateTaskInput({ name, weight, block, days, personId }) {
   if (!db.prepare("SELECT 1 FROM people WHERE id = ?").get(personId)) throw new Error("Người phụ trách không hợp lệ");
 }
 
-function toggleCompletion(date, taskId) {
+// Đánh dấu / bỏ đánh dấu một việc trong một ngày cụ thể là "đã xong".
+// "doneBy": ai THỰC SỰ làm việc này — không nhất thiết là người phụ trách mặc định
+// (vd: việc của Em Xoài nhưng hôm đó Chị Nấm rửa giúp) — mặc định là người phụ trách
+// nếu không chọn ai khác. Phần trăm hoàn thành sẽ được tính cho đúng người đã làm.
+function toggleCompletion(date, taskId, doneBy) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) throw new Error("Ngày không hợp lệ");
-  if (!db.prepare("SELECT 1 FROM tasks WHERE id = ?").get(taskId)) throw new Error("Việc không tồn tại");
+  const task = db.prepare("SELECT person_id FROM tasks WHERE id = ?").get(taskId);
+  if (!task) throw new Error("Việc không tồn tại");
   const row = db.prepare("SELECT done FROM completions WHERE date = ? AND task_id = ?").get(date, taskId);
+
+  if (row && row.done) {
+    // Đang đánh dấu "đã xong" -> bấm lại để bỏ đánh dấu
+    db.prepare("UPDATE completions SET done = 0, done_by = NULL WHERE date = ? AND task_id = ?").run(date, taskId);
+    return;
+  }
+
+  const by = doneBy || task.person_id;
+  if (!db.prepare("SELECT 1 FROM people WHERE id = ?").get(by)) throw new Error("Người hoàn thành không hợp lệ");
+
   if (row) {
-    db.prepare("UPDATE completions SET done = ? WHERE date = ? AND task_id = ?").run(row.done ? 0 : 1, date, taskId);
+    db.prepare("UPDATE completions SET done = 1, done_by = ? WHERE date = ? AND task_id = ?").run(by, date, taskId);
   } else {
-    db.prepare("INSERT INTO completions (date, task_id, done) VALUES (?, ?, 1)").run(date, taskId);
+    db.prepare("INSERT INTO completions (date, task_id, done, done_by) VALUES (?, ?, 1, ?)").run(date, taskId, by);
   }
 }
 
@@ -250,12 +278,14 @@ function getFullState() {
 
   const placeholders = days.map(() => "?").join(",");
   const completionRows = db
-    .prepare(`SELECT date, task_id, done FROM completions WHERE date IN (${placeholders})`)
+    .prepare(`SELECT date, task_id, done, done_by FROM completions WHERE date IN (${placeholders})`)
     .all(...days);
   const completions = {};
   completionRows.forEach(r => {
     if (!completions[r.date]) completions[r.date] = {};
-    completions[r.date][r.task_id] = !!r.done;
+    // Chưa xong -> false. Đã xong -> id của người ĐÃ LÀM (doneBy), dùng để tính
+    // % hoàn thành cho đúng người — kể cả khi khác với người phụ trách mặc định.
+    completions[r.date][r.task_id] = r.done ? r.done_by : false;
   });
 
   return { people, tasks, completions, weekStart: currentMonday, weekDates: days, shares: computeShares() };
@@ -343,7 +373,7 @@ async function handleApi(req, res, pathname) {
 
     if (req.method === "POST" && pathname === "/api/completions/toggle") {
       const body = await readJsonBody(req);
-      toggleCompletion(body.date, body.taskId);
+      toggleCompletion(body.date, body.taskId, body.doneBy || null);
       return sendJson(res, 200, getFullState());
     }
 
