@@ -1,0 +1,13 @@
+{
+  "name": "housework-schedule",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lịch & phân chia việc nhà cho 3 người, có database SQLite tích hợp sẵn",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

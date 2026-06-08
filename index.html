@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Việc nhà nhà mình 🏠</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>🏠 Lịch việc nhà</h1>
+    <p class="subtitle">Chia việc linh hoạt cho chị Nấm, Su &amp; em Xoài</p>
+  </header>
+
+  <main>
+    <!-- ===== Mọi người & chế độ ===== -->
+    <section class="card">
+      <h2>1. Mọi người &amp; chế độ hiện tại</h2>
+      <p class="hint">
+        <strong>Bận thi 📚</strong>: chỉ cần làm một phần nhỏ (mặc định 10%), 2 người còn lại gánh phần còn lại —
+        hệ thống sẽ <em>ghi nợ</em> số tuần tương ứng cho người này.<br>
+        <strong>Đang rảnh 🌿</strong>: có thể nhận thêm việc (mặc định 50–70%) — hệ thống ghi nhận phần "làm dư"
+        để <em>bù vào những lúc thiếu hụt</em> của cả nhà.
+      </p>
+      <div class="people-grid" id="people-grid"></div>
+
+      <h3>📒 Sổ nợ chung</h3>
+      <p class="hint">Đơn vị: "tuần làm việc nhà bình thường". Số dương = đã làm dư (đang được ghi công), số âm = đang nợ.</p>
+      <div class="ledger" id="ledger"></div>
+    </section>
+
+    <!-- ===== Quản lý đầu việc ===== -->
+    <section class="card">
+      <h2>2. Đầu việc nhà</h2>
+      <p class="hint">Thêm / sửa / xoá việc, chọn người phụ trách, ngày trong tuần và buổi rảnh phù hợp.</p>
+      <div class="task-list" id="task-list"></div>
+
+      <button class="btn-add" id="btn-show-form" disabled>Đang tải dữ liệu…</button>
+
+      <form class="task-form" id="task-form" hidden>
+        <h3 id="task-form-title">Thêm việc mới</h3>
+        <input type="hidden" id="f-task-id">
+
+        <label>Tên việc
+          <input type="text" id="f-name" placeholder="VD: Tưới cây" required>
+        </label>
+
+        <label>Độ mệt
+          <select id="f-weight">
+            <option value="1">Nhẹ (1 điểm)</option>
+            <option value="2">Vừa (2 điểm)</option>
+            <option value="4">Nặng (4 điểm)</option>
+          </select>
+        </label>
+
+        <fieldset>
+          <legend>Ngày trong tuần</legend>
+          <div class="day-checks" id="f-days"></div>
+        </fieldset>
+
+        <label>Buổi / khung giờ rảnh
+          <select id="f-block">
+            <option value="morning">🌤️ Buổi sáng</option>
+            <option value="afternoon">🍳 Buổi chiều</option>
+            <option value="evening">🌙 Buổi tối</option>
+          </select>
+        </label>
+
+        <label>Người phụ trách
+          <select id="f-person"></select>
+        </label>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="f-submit">Thêm việc</button>
+          <button type="button" class="btn-secondary" id="f-cancel">Huỷ</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Tỉ trọng % ===== -->
+    <section class="card">
+      <h2>3. Tỉ trọng khối lượng việc hiện tại</h2>
+      <p class="hint">Tính trực tiếp từ danh sách đầu việc &amp; người phụ trách ở trên — đổi việc là % đổi theo ngay.</p>
+      <div class="bars" id="percent-bars"></div>
+      <div class="legend" id="percent-legend"></div>
+    </section>
+
+    <!-- ===== Lịch tuần ===== -->
+    <section class="card">
+      <h2>4. Lịch việc nhà tuần này</h2>
+      <p class="hint">
+        Bấm vào ô vuông cạnh mỗi việc để đánh dấu <strong>đã xong</strong> — dấu ✓ sẽ hiện theo màu của người phụ trách,
+        nhìn vào là biết ai đã làm việc gì. Mỗi sáng Thứ 2, mọi người tự quay về chế độ "Bình thường".
+      </p>
+      <div class="schedule-wrap">
+        <table class="schedule-table" id="schedule-table"></table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p id="footer-status">Đang kết nối tới server…</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

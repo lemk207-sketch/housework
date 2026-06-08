@@ -1,0 +1,4 @@
+node_modules/
+housework.db
+housework.db-*
+server.log

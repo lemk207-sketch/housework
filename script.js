@@ -1,0 +1,437 @@
+// ============================================================
+// HẰNG SỐ HIỂN THỊ
+// ============================================================
+const DAY_SHORT = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const DAY_FULL  = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+
+const BLOCKS = [
+  { id: "morning",   label: "🌤️ Buổi sáng" },
+  { id: "afternoon", label: "🍳 Buổi chiều" },
+  { id: "evening",   label: "🌙 Buổi tối" },
+];
+
+const WEIGHT_LABELS = { 1: "Nhẹ (1đ)", 2: "Vừa (2đ)", 4: "Nặng (4đ)" };
+
+// ============================================================
+// STATE — lấy & lưu qua API của server (server.js), dữ liệu thật sự
+// nằm trong database SQLite (housework.db). Mở lại trang vẫn còn nguyên,
+// và 3 chị em mở từ máy/điện thoại khác nhau cũng thấy cùng một dữ liệu.
+// ============================================================
+let state = { people: [], tasks: [], completions: {}, weekStart: "", weekDates: [], shares: {} };
+let editingTaskId = null;   // id việc đang sửa, null = đang thêm mới
+let openModePanel = null;   // { personId, mode } — panel kích hoạt chế độ đang mở
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let body = null;
+  try { body = await res.json(); } catch { /* không có body JSON */ }
+  if (!res.ok) throw new Error((body && body.error) || `Lỗi server (${res.status})`);
+  return body;
+}
+
+async function refresh() {
+  state = await api("/api/state");
+  setFooterStatus(`Đã kết nối database — tuần bắt đầu từ ${fmtDateLabel(state.weekStart)}.`);
+  // Chỉ cho phép mở form thêm việc SAU KHI đã có danh sách người — tránh trường hợp
+  // bấm quá nhanh lúc trang vừa tải, khiến ô "Người phụ trách" bị rỗng do chưa có dữ liệu.
+  if (state.people.length > 0) {
+    showFormBtn.disabled = false;
+    showFormBtn.textContent = "＋ Thêm việc nhà";
+  }
+  renderAll();
+}
+
+function setFooterStatus(text, isError) {
+  const el = document.getElementById("footer-status");
+  el.textContent = text;
+  el.classList.toggle("error", !!isError);
+}
+
+// ============================================================
+// HÀM TIỆN ÍCH
+// ============================================================
+function personById(id) { return state.people.find(p => p.id === id); }
+function otherNames(personId) {
+  return state.people.filter(p => p.id !== personId).map(p => p.name).join(" & ");
+}
+function fmtDays(days) {
+  if (days.length === 7) return "Hằng ngày";
+  return [...days].sort((a, b) => a - b).map(d => DAY_SHORT[d]).join(", ");
+}
+function fmtDateLabel(isoStr) {
+  if (!isoStr) return "";
+  const [, m, d] = isoStr.split("-");
+  return `${d}/${m}`;
+}
+
+// ============================================================
+// RENDER: 1) Mọi người & chế độ + Sổ nợ chung
+// ============================================================
+function renderModePanel(person, mode) {
+  if (mode === "normal") return "";
+  const isExam = mode === "exam";
+  const desc = isExam
+    ? `Trong thời gian ôn thi, ${person.name} chỉ cần đảm nhận một phần nhỏ — phần còn lại ${otherNames(person.id)} sẽ chia nhau gánh đỡ. Hệ thống sẽ ghi nợ đúng số tuần khai báo.`
+    : `${person.name} đang rảnh, có thể nhận thêm việc (gợi ý 50–70%) — phần làm dư sẽ được ghi công để bù vào những lúc cả nhà thiếu hụt sau này.`;
+
+  return `
+    <div class="mode-panel ${mode}">
+      <p style="margin:0 0 8px;">${desc}</p>
+      <div class="field-row">
+        <label for="mp-percent">${isExam ? "Chỉ làm khoảng (%)" : "Nhận thêm tới (%)"}</label>
+        <input type="number" id="mp-percent" min="${isExam ? 0 : 34}" max="${isExam ? 33 : 100}" value="${isExam ? 10 : 60}">
+      </div>
+      <div class="field-row">
+        <label for="mp-weeks">Áp dụng trong (tuần)</label>
+        <input type="number" id="mp-weeks" min="1" max="12" value="1">
+      </div>
+      <button type="button" class="btn-apply" data-action="apply-mode" data-person="${person.id}" data-mode="${mode}">
+        Kích hoạt &amp; ghi nhận
+      </button>
+    </div>
+  `;
+}
+
+function renderPeople() {
+  const wrap = document.getElementById("people-grid");
+  const modeLabel = { normal: "Bình thường", exam: "📚 Đang ôn thi", free: "🌿 Đang rảnh" };
+
+  wrap.innerHTML = state.people.map(p => {
+    const fair = (state.shares[p.id] && state.shares[p.id].percent) || 0;
+
+    let statusLine;
+    if (p.mode === "exam" && p.modeDetail) {
+      statusLine = `Đang nhận khoảng <strong>${p.modeDetail.percent}%</strong> khối lượng trong <strong>${p.modeDetail.weeks} tuần</strong> — phần còn lại do ${otherNames(p.id)} chia nhau gánh.`;
+    } else if (p.mode === "free" && p.modeDetail) {
+      statusLine = `Nhận thêm tới <strong>${p.modeDetail.percent}%</strong> khối lượng trong <strong>${p.modeDetail.weeks} tuần</strong> — phần dư dùng để bù nợ chung.`;
+    } else {
+      statusLine = `Theo lịch bình thường — khoảng <strong>${fair.toFixed(1)}%</strong> khối lượng/tuần.`;
+    }
+
+    const panel = (openModePanel && openModePanel.personId === p.id)
+      ? renderModePanel(p, openModePanel.mode)
+      : "";
+
+    return `
+      <div class="person-card" style="--p-color:${p.color}">
+        <div class="person-head">
+          <span class="person-name">${p.name}</span>
+          <span class="mode-badge ${p.mode}">${modeLabel[p.mode]}</span>
+        </div>
+        <div class="mode-buttons">
+          <button data-action="mode" data-person="${p.id}" data-mode="normal" class="${p.mode === "normal" ? "active normal" : ""}">Bình thường</button>
+          <button data-action="mode" data-person="${p.id}" data-mode="exam"   class="${p.mode === "exam"   ? "active exam"   : ""}">📚 Bận thi</button>
+          <button data-action="mode" data-person="${p.id}" data-mode="free"   class="${p.mode === "free"   ? "active free"   : ""}">🌿 Đang rảnh</button>
+        </div>
+        ${panel}
+        <p class="person-status">${statusLine}</p>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderLedger() {
+  const wrap = document.getElementById("ledger");
+  wrap.innerHTML = state.people.map(p => {
+    const bal = p.balanceWeeks;
+    let cls = "even", note = "Đang cân bằng — không nợ, không dư.";
+    if (bal > 0.05)       { cls = "credit"; note = "Đã làm dư so với phần của mình — sẽ được tính bù khi cần."; }
+    else if (bal < -0.05) { cls = "debt";   note = "Đang nợ phần việc — sẽ được bù dần ở những tuần sau."; }
+    return `
+      <div class="ledger-row ${cls}">
+        <div class="l-name">${p.name}</div>
+        <div class="l-balance">${bal > 0 ? "+" : ""}${bal.toFixed(2)} tuần</div>
+        <div class="l-note">${note}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ============================================================
+// RENDER: 2) Danh sách đầu việc (thêm / sửa / xoá)
+// ============================================================
+function renderTaskList() {
+  const wrap = document.getElementById("task-list");
+  if (state.tasks.length === 0) {
+    wrap.innerHTML = `<p class="hint">Chưa có việc nào — bấm "Thêm việc nhà" bên dưới để bắt đầu nhé.</p>`;
+    return;
+  }
+  wrap.innerHTML = state.tasks.map(t => {
+    const person = personById(t.personId);
+    const block = BLOCKS.find(b => b.id === t.block);
+    return `
+      <div class="task-item">
+        <span class="t-dot" style="background:${person ? person.color : "#ccc"}"></span>
+        <div class="t-main">
+          <div class="t-name">${t.name}</div>
+          <div class="t-meta">${WEIGHT_LABELS[t.weight] || (t.weight + "đ")} · ${block ? block.label : ""} · ${fmtDays(t.days)} · ${person ? person.name : "—"}</div>
+        </div>
+        <div class="t-actions">
+          <button data-action="edit-task" data-task="${t.id}">Sửa</button>
+          <button class="danger" data-action="delete-task" data-task="${t.id}">Xoá</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ============================================================
+// RENDER: 3) Thanh % khối lượng (server tính sẵn từ danh sách việc hiện tại)
+// ============================================================
+function renderPercentBars() {
+  const bars = document.getElementById("percent-bars");
+  const legend = document.getElementById("percent-legend");
+
+  bars.innerHTML = state.people.map(p => {
+    const pct = (state.shares[p.id] && state.shares[p.id].percent) || 0;
+    return `
+      <div class="bar-row">
+        <div class="bar-name">${p.name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%; background:${p.color};">${pct.toFixed(1)}%</div>
+        </div>
+        <div class="bar-pct">${pct.toFixed(1)}%</div>
+      </div>
+    `;
+  }).join("");
+
+  legend.innerHTML = state.people.map(p =>
+    `<span><span class="dot" style="background:${p.color}"></span>${p.name}</span>`
+  ).join("");
+}
+
+// ============================================================
+// RENDER: 4) Lịch tuần này — theo ngày thực tế, có thể đánh dấu "đã xong"
+// ============================================================
+function renderSchedule() {
+  const table = document.getElementById("schedule-table");
+  if (state.weekDates.length === 0) { table.innerHTML = ""; return; }
+
+  const head = `<tr><th>Ngày</th>${BLOCKS.map(b => `<th>${b.label}</th>`).join("")}</tr>`;
+
+  const rows = state.weekDates.map((dateStr, dayIdx) => {
+    const cells = BLOCKS.map(block => {
+      const tasks = state.tasks.filter(t => t.block === block.id && t.days.includes(dayIdx));
+      if (tasks.length === 0) return `<td></td>`;
+      const chips = tasks.map(t => {
+        const person = personById(t.personId);
+        const color = person ? person.color : "#ccc";
+        const done = !!(state.completions[dateStr] && state.completions[dateStr][t.id]);
+        return `
+          <div class="task-chip" style="background:${color}">
+            <span class="task-name">${t.name}</span>
+            <span class="person-name">${person ? person.name : "—"}</span>
+            <button type="button" class="cross-btn ${done ? "done" : ""}" style="--cross-color:${color}"
+              data-action="toggle-done" data-date="${dateStr}" data-task="${t.id}"
+              title="${done ? "Đã xong — bấm để bỏ đánh dấu" : "Bấm để đánh dấu đã xong"}">${done ? "✓" : ""}</button>
+          </div>
+        `;
+      }).join("");
+      return `<td>${chips}</td>`;
+    }).join("");
+    return `<tr><td class="day-cell">${DAY_FULL[dayIdx]}<br><span class="day-date">${fmtDateLabel(dateStr)}</span></td>${cells}</tr>`;
+  }).join("");
+
+  table.innerHTML = head + rows;
+}
+
+function renderAll() {
+  renderPeople();
+  renderLedger();
+  renderTaskList();
+  renderPercentBars();
+  renderSchedule();
+}
+
+// ============================================================
+// FORM THÊM / SỬA VIỆC
+// ============================================================
+const taskForm = document.getElementById("task-form");
+const showFormBtn = document.getElementById("btn-show-form");
+
+function populateDayChecks(selectedDays) {
+  const wrap = document.getElementById("f-days");
+  wrap.innerHTML = DAY_FULL.map((_, idx) => `
+    <label><input type="checkbox" value="${idx}" ${selectedDays.includes(idx) ? "checked" : ""}> ${DAY_SHORT[idx]}</label>
+  `).join("");
+}
+
+function populatePersonSelect(selectedId) {
+  const sel = document.getElementById("f-person");
+  sel.innerHTML = state.people.map(p =>
+    `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${p.name}</option>`
+  ).join("");
+}
+
+function openTaskForm(taskId) {
+  if (state.people.length === 0) {
+    alert("Dữ liệu đang tải, vui lòng đợi một chút rồi thử lại nhé.");
+    return;
+  }
+  editingTaskId = taskId;
+  const title = document.getElementById("task-form-title");
+  const submitBtn = document.getElementById("f-submit");
+
+  if (taskId) {
+    const t = state.tasks.find(x => x.id === taskId);
+    title.textContent = "Sửa việc nhà";
+    submitBtn.textContent = "Lưu thay đổi";
+    document.getElementById("f-task-id").value = t.id;
+    document.getElementById("f-name").value = t.name;
+    document.getElementById("f-weight").value = String(t.weight);
+    document.getElementById("f-block").value = t.block;
+    populateDayChecks(t.days);
+    populatePersonSelect(t.personId);
+  } else {
+    title.textContent = "Thêm việc mới";
+    submitBtn.textContent = "Thêm việc";
+    document.getElementById("f-task-id").value = "";
+    document.getElementById("f-name").value = "";
+    document.getElementById("f-weight").value = "1";
+    document.getElementById("f-block").value = "morning";
+    populateDayChecks([0,1,2,3,4,5,6]);
+    populatePersonSelect(state.people[0] ? state.people[0].id : "");
+  }
+
+  taskForm.hidden = false;
+  showFormBtn.hidden = true;
+  document.getElementById("f-name").focus();
+}
+
+function closeTaskForm() {
+  editingTaskId = null;
+  taskForm.hidden = true;
+  showFormBtn.hidden = false;
+  taskForm.reset();
+}
+
+async function submitTaskForm() {
+  const name = document.getElementById("f-name").value.trim();
+  const weight = Number(document.getElementById("f-weight").value);
+  const block = document.getElementById("f-block").value;
+  const personId = document.getElementById("f-person").value;
+  const days = Array.from(document.querySelectorAll("#f-days input:checked")).map(i => Number(i.value));
+
+  if (!name) return;
+  if (days.length === 0) { alert("Chọn ít nhất một ngày trong tuần nhé."); return; }
+
+  const payload = { name, weight, block, personId, days };
+  try {
+    if (editingTaskId) {
+      await api(`/api/tasks/${editingTaskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await api("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
+    closeTaskForm();
+    await refresh();
+  } catch (err) {
+    alert("Không lưu được: " + err.message);
+  }
+}
+
+showFormBtn.addEventListener("click", () => openTaskForm(null));
+document.getElementById("f-cancel").addEventListener("click", closeTaskForm);
+taskForm.addEventListener("submit", e => { e.preventDefault(); submitTaskForm(); });
+
+// ============================================================
+// SỰ KIỆN DÙNG CHUNG (uỷ quyền qua data-action vì DOM được render lại liên tục)
+// ============================================================
+document.addEventListener("click", async e => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  try {
+    if (action === "mode") {
+      const personId = btn.dataset.person;
+      const mode = btn.dataset.mode;
+      if (mode === "normal") {
+        await api(`/api/people/${personId}/normal`, { method: "POST" });
+        openModePanel = null;
+        await refresh();
+      } else if (openModePanel && openModePanel.personId === personId && openModePanel.mode === mode) {
+        openModePanel = null;
+        renderPeople();
+      } else {
+        openModePanel = { personId, mode };
+        renderPeople();
+      }
+      return;
+    }
+
+    if (action === "apply-mode") {
+      const personId = btn.dataset.person;
+      const mode = btn.dataset.mode;
+      const percent = Math.max(0, Math.min(100, Number(document.getElementById("mp-percent").value) || 0));
+      const weeks = Math.max(1, Math.min(52, Number(document.getElementById("mp-weeks").value) || 1));
+      await api(`/api/people/${personId}/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, percent, weeks }),
+      });
+      openModePanel = null;
+      await refresh();
+      return;
+    }
+
+    if (action === "edit-task") { openTaskForm(btn.dataset.task); return; }
+
+    if (action === "delete-task") {
+      if (confirm("Xoá việc này khỏi danh sách? (cả lịch sử đánh dấu đã xong của việc này cũng sẽ mất)")) {
+        await api(`/api/tasks/${btn.dataset.task}`, { method: "DELETE" });
+        await refresh();
+      }
+      return;
+    }
+
+    if (action === "toggle-done") {
+      await api("/api/completions/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: btn.dataset.date, taskId: btn.dataset.task }),
+      });
+      await refresh();
+      return;
+    }
+  } catch (err) {
+    alert("Có lỗi xảy ra: " + err.message);
+  }
+});
+
+// ============================================================
+// KHỞI ĐỘNG — lấy dữ liệu từ database qua server
+// ============================================================
+function showStartupError(message) {
+  document.querySelector("main").innerHTML = `
+    <section class="card">
+      <h2>⚠️ Chưa kết nối được tới server</h2>
+      <p>${message}</p>
+      <p class="hint">
+        Sau khi chạy <code>node server.js</code>, bạn cần mở trang qua địa chỉ:<br>
+        👉 <strong>http://localhost:3000</strong><br>
+        (chứ không phải mở trực tiếp file <code>index.html</code> bằng cách bấm đúp vào nó —
+        cách đó trình duyệt sẽ không gọi được tới server/database).
+      </p>
+    </section>
+  `;
+  setFooterStatus(message, true);
+}
+
+if (location.protocol === "file:") {
+  // Trang đang được mở trực tiếp từ file (vd: bấm đúp index.html) — fetch tới /api/... sẽ luôn lỗi.
+  showStartupError(
+    `Trang này đang được mở trực tiếp từ ổ đĩa (đường dẫn bắt đầu bằng "file://"), nên không gọi được tới server/database.`
+  );
+} else {
+  refresh().catch(err => {
+    showStartupError(`Không gọi được API (${err.message}). Server có thể chưa chạy — hãy mở terminal tại thư mục dự án và chạy "node server.js".`);
+  });
+}
