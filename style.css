@@ -213,12 +213,13 @@ code {
   position: fixed;
   inset: 0;
   background: rgba(20, 18, 30, 0.45);
-  display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
   z-index: 50;
 }
+.profile-overlay[hidden] { display: none; }
+.profile-overlay:not([hidden]) { display: flex; }
 .profile-modal {
   position: relative;
   background: var(--card-bg);
