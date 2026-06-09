@@ -345,12 +345,15 @@ code {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(135deg, #f0edff, #e6eeff);
   flex-shrink: 0;
 }
-.ai-popup-title { font-size: 1rem; font-weight: 700; }
+.ai-popup-header-left { display: flex; align-items: center; gap: 10px; }
+.ai-popup-icon { font-size: 1.8rem; line-height: 1; }
+.ai-popup-title { font-size: 1rem; font-weight: 700; line-height: 1.2; }
+.ai-popup-subtitle { font-size: 0.74rem; color: var(--muted); }
 .ai-popup-close {
   width: 30px;
   height: 30px;
@@ -367,13 +370,133 @@ code {
   flex-shrink: 0;
 }
 .ai-popup-close:hover { background: rgba(0,0,0,0.16); }
+
+/* ----- AI tabs (chọn từng người) ----- */
+.ai-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.ai-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.ai-tab:hover { background: #f5f3ff; }
+.ai-tab.active {
+  background: color-mix(in srgb, var(--p-color, #7b9ef0) 14%, #fff);
+  border-color: color-mix(in srgb, var(--p-color, #7b9ef0) 55%, transparent);
+  box-shadow: var(--shadow-xs);
+}
+
 .ai-popup-body {
   overflow-y: auto;
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  flex: 1;
 }
+
+/* ----- Chat bubbles ----- */
+.chat-msg {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  animation: chat-bubble-in 0.25s var(--ease) both;
+}
+@keyframes chat-bubble-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.chat-ai-avatar {
+  font-size: 1.2rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8e2ff, #d4e8ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+.chat-bubble {
+  flex: 1;
+  background: linear-gradient(160deg, #f6f4ff 0%, #eef3ff 100%);
+  border-radius: 4px 16px 16px 16px;
+  padding: 12px 14px;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  box-shadow: var(--shadow-xs);
+  border: 1px solid rgba(120, 100, 220, 0.08);
+}
+.chat-bubble p { margin: 0 0 5px; }
+.chat-bubble p:last-child { margin-bottom: 0; }
+.chat-bubble em { font-style: normal; font-weight: 600; }
+
+/* ----- Progress bar trong bubble ----- */
+.chat-prog-wrap { margin: 8px 0 4px; }
+.chat-prog-track {
+  height: 9px;
+  background: rgba(0,0,0,0.09);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 7px;
+}
+.chat-prog-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s var(--ease);
+  min-width: 4px;
+}
+.chat-prog-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.79rem;
+  color: var(--muted);
+  align-items: center;
+}
+.chat-prog-stats strong { color: var(--text); }
+.chat-pct { font-weight: 800; color: var(--text); margin-left: auto; font-size: 0.9rem; }
+
+/* ----- Danh sách việc trong bubble ----- */
+.chat-task-list { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
+.chat-task-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.83rem;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.04);
+  transition: opacity 0.2s;
+}
+.chat-task-item.done { opacity: 0.55; }
+.chat-task-check { font-weight: 700; width: 16px; text-align: center; flex-shrink: 0; color: var(--text); }
+.chat-task-item.done .chat-task-check { color: #2e9b66; }
+.chat-task-name { flex: 1; }
+.chat-task-pts { color: var(--muted); font-size: 0.75rem; flex-shrink: 0; }
+
+/* ----- Nhãn sổ nợ ----- */
+.chat-debt   { color: #d8473a; font-weight: 700; }
+.chat-credit { color: #2e9b66; font-weight: 700; }
+.chat-even   { color: var(--muted); font-weight: 700; }
 
 /* ----- Tuyết AI cards (dùng trong popup và profile) ----- */
 .ai-card {

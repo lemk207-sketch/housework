@@ -269,25 +269,146 @@ function buildAiLines(personId) {
 // TUYẾT AI CHAT POPUP
 // ============================================================
 let aiPopupOpen = false;
+let aiTabPersonId = null;
 
-function renderAiChat() {
-  const body = document.getElementById("ai-popup-body");
-  if (!body) return;
-  body.innerHTML = state.people.map(p => {
-    const lines = buildAiLines(p.id);
-    return `
-      <div class="ai-card" style="--p-color:${p.color}">
-        <div class="ai-avatar">🧊</div>
-        <div>
-          <div class="ai-name">${avatarHTML(p, "sm")} ${p.name}</div>
-          ${lines.map(l => `<p class="ai-line">${l}</p>`).join("")}
+function todayTasks(personId) {
+  const today = todayIso();
+  const todayIdx = state.weekDates.indexOf(today);
+  if (todayIdx === -1) return [];
+  return state.tasks
+    .filter(t => t.days.includes(todayIdx) && creditedPerson(today, t) === personId)
+    .map(t => ({
+      task: t,
+      done: !!(state.completions[today] && state.completions[today][t.id])
+    }));
+}
+
+function buildChatBubbles(personId) {
+  const person = personById(personId);
+  if (!person) return [];
+  const today = todayIso();
+  const todayIdx = state.weekDates.indexOf(today);
+  const dayName = todayIdx >= 0 ? DAY_FULL[todayIdx] : "Hôm nay";
+  const tasks = todayTasks(personId);
+  const upcoming = upcomingUndone(personId);
+  const balance = person.balanceWeeks;
+  const bubbles = [];
+
+  // ── Bubble 1: Hôm nay ──
+  const totalPts = tasks.reduce((s, t) => s + t.task.weight, 0);
+  const donePts  = tasks.reduce((s, t) => s + (t.done ? t.task.weight : 0), 0);
+  const todayPct = totalPts > 0 ? (donePts / totalPts) * 100 : null;
+
+  if (tasks.length === 0) {
+    bubbles.push(`<p>📅 <strong>${dayName}</strong> — ${person.name} không có việc nào hôm nay. Tận hưởng ngày nghỉ nhé! 🎉</p>`);
+  } else {
+    const taskListHTML = tasks.map(t => `
+      <div class="chat-task-item ${t.done ? "done" : ""}">
+        <span class="chat-task-check">${t.done ? "✓" : "○"}</span>
+        <span class="chat-task-name">${t.task.name}</span>
+        <span class="chat-task-pts">${t.task.weight}đ mệt</span>
+      </div>`).join("");
+    bubbles.push(`
+      <p>📅 <strong>${dayName}</strong> — việc của <strong>${person.name}</strong>:</p>
+      <div class="chat-prog-wrap">
+        <div class="chat-prog-track"><div class="chat-prog-fill" style="width:${todayPct ?? 0}%;background:${person.color}"></div></div>
+        <div class="chat-prog-stats">
+          <span>✅ <strong>${donePts}</strong> điểm mệt xong</span>
+          <span>⏳ <strong>${totalPts - donePts}</strong> điểm mệt còn lại</span>
+          <span class="chat-pct">${(todayPct ?? 0).toFixed(0)}%</span>
         </div>
       </div>
-    `;
-  }).join("");
+      <div class="chat-task-list">${taskListHTML}</div>`);
+  }
+
+  // ── Bubble 2: Tuần này ──
+  let weekTotal = 0, weekDone = 0;
+  state.tasks.forEach(t => {
+    t.days.forEach(dayIdx => {
+      const dateStr = state.weekDates[dayIdx];
+      if (!dateStr || creditedPerson(dateStr, t) !== personId) return;
+      weekTotal += t.weight;
+      if (state.completions[dateStr] && state.completions[dateStr][t.id]) weekDone += t.weight;
+    });
+  });
+  const weekPct = weekTotal > 0 ? (weekDone / weekTotal) * 100 : null;
+
+  if (weekTotal > 0) {
+    if (weekPct >= 99.9) {
+      bubbles.push(`<p>📆 <strong>Tuần này</strong> ${person.name} đã hoàn thành <strong>100%</strong> — ${weekDone}/${weekTotal} điểm mệt. Tuyệt vời, cả nhà ghi nhận! 🏆</p>`);
+    } else {
+      bubbles.push(`
+        <p>📆 <strong>Tuần này</strong> (từ ${fmtDateLabel(state.weekStart)}) — tổng tiến độ:</p>
+        <div class="chat-prog-wrap">
+          <div class="chat-prog-track"><div class="chat-prog-fill" style="width:${weekPct}%;background:${person.color}"></div></div>
+          <div class="chat-prog-stats">
+            <span>✅ <strong>${weekDone}</strong>/<strong>${weekTotal}</strong> điểm mệt</span>
+            <span>Còn <strong>${(100 - weekPct).toFixed(0)}%</strong> nữa đủ chỉ tiêu 🎯</span>
+          </div>
+        </div>`);
+    }
+  }
+
+  // ── Bubble 3: Gợi ý tiếp theo ──
+  if (upcoming.length > 0) {
+    const next = upcoming[0];
+    const rest = upcoming.length - 1;
+    bubbles.push(`
+      <p>💡 <strong>Gợi ý tiếp theo:</strong></p>
+      <p>→ Làm <em>"${next.task.name}"</em> vào <strong>${DAY_FULL[next.dayIdx]} (${fmtDateLabel(next.dateStr)})</strong>${rest > 0 ? ` — còn ${rest} việc khác trong tuần.` : "."}</p>`);
+  } else if (weekTotal > 0) {
+    bubbles.push(`<p>✨ ${person.name} đã xong hết việc tuần này rồi! Cứ thư giãn đi nhé. 🌸</p>`);
+  }
+
+  // ── Bubble 4: Sổ nợ chung ──
+  let balHTML;
+  if (balance < -0.05) {
+    const owe = Math.abs(balance);
+    const helper = [...state.people].filter(p => p.id !== personId).sort((a, b) => b.balanceWeeks - a.balanceWeeks)[0];
+    balHTML = `<p>📒 <strong>Sổ nợ:</strong> ${person.name} đang <span class="chat-debt">nợ ${owe.toFixed(1)} tuần</span> việc nhà.</p>`;
+    if (helper) {
+      const h = upcomingUndone(helper.id)[0];
+      balHTML += h
+        ? `<p>→ Để bù dần, hãy làm giúp <em>"${h.task.name}"</em> (việc của ${helper.name}) vào ${DAY_FULL[h.dayIdx]} nhé!</p>`
+        : `<p>→ Hãy nhận thêm việc giúp ${helper.name} những ngày tới để bù dần nhé.</p>`;
+    }
+  } else if (balance > 0.05) {
+    balHTML = `<p>📒 <strong>Sổ nợ:</strong> ${person.name} đang <span class="chat-credit">dư ${balance.toFixed(1)} tuần</span> — đã làm nhiều hơn phần của mình. Cả nhà ghi nhận! 💪</p>`;
+  } else {
+    balHTML = `<p>📒 <strong>Sổ nợ:</strong> ${person.name} đang <span class="chat-even">cân bằng</span> — không nợ, không dư. Hoàn hảo! ✨</p>`;
+  }
+  bubbles.push(balHTML);
+
+  return bubbles;
+}
+
+function renderAiTabs() {
+  const wrap = document.getElementById("ai-tabs");
+  if (!wrap) return;
+  wrap.innerHTML = state.people.map(p => `
+    <button class="ai-tab ${p.id === aiTabPersonId ? "active" : ""}"
+      data-action="ai-tab" data-person="${p.id}" style="--p-color:${p.color}">
+      ${avatarHTML(p, "sm")} ${p.name}
+    </button>`).join("");
+}
+
+function renderAiChat() {
+  renderAiTabs();
+  const body = document.getElementById("ai-popup-body");
+  if (!body || !aiTabPersonId) return;
+  const person = personById(aiTabPersonId);
+  if (!person) return;
+  const bubbles = buildChatBubbles(aiTabPersonId);
+  body.innerHTML = bubbles.map((html, i) => `
+    <div class="chat-msg" style="animation-delay:${i * 0.07}s">
+      <div class="chat-ai-avatar">🧊</div>
+      <div class="chat-bubble">${html}</div>
+    </div>`).join("");
+  body.scrollTop = 0;
 }
 
 function openAiChat() {
+  if (state.people.length > 0) aiTabPersonId = state.people[0].id;
   renderAiChat();
   document.getElementById("ai-popup").hidden = false;
   aiPopupOpen = true;
@@ -885,6 +1006,12 @@ document.addEventListener("click", async e => {
     if (action === "cancel-pick-doer") {
       doerPickerFor = null;
       renderSchedule();
+      return;
+    }
+
+    if (action === "ai-tab") {
+      aiTabPersonId = btn.dataset.person;
+      renderAiChat();
       return;
     }
   } catch (err) {
