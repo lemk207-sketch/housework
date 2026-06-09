@@ -21,12 +21,21 @@
 body {
   margin: 0;
   font-family: 'Nunito', "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  background:
-    radial-gradient(640px 340px at 10% -8%,  rgba(232, 120, 142, 0.12), transparent 60%),
-    radial-gradient(640px 340px at 90% 0%,   rgba(91, 191, 212, 0.12), transparent 60%),
-    var(--bg);
+  background-image: url('bg.avif');
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center top;
   color: var(--text);
   line-height: 1.55;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(253, 245, 228, 0.82);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: -1;
 }
 
 .topbar {
