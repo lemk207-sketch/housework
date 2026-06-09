@@ -38,6 +38,7 @@ async function refresh() {
   if (state.people.length > 0) {
     showFormBtn.disabled = false;
     showFormBtn.textContent = "＋ Thêm việc nhà";
+    aiFab.hidden = false;
   }
   renderAll();
 }
@@ -52,8 +53,6 @@ function showSkeletons() {
       <div class="skeleton skeleton-row"></div>
     `).join("");
   }
-  const ai = document.getElementById("ai-board");
-  if (ai) ai.innerHTML = `<div class="skeleton skeleton-row" style="height:90px"></div>`;
   const ledger = document.getElementById("ledger");
   if (ledger) {
     ledger.innerHTML = Array.from({ length: 3 }).map(() => `
@@ -266,11 +265,16 @@ function buildAiLines(personId) {
   return lines;
 }
 
-function renderAiBoard() {
-  const wrap = document.getElementById("ai-board");
-  if (!wrap) return;
-  wrap.innerHTML = state.people.map(p => {
-    const lines = buildAiLines(p.id).slice(0, 2);
+// ============================================================
+// TUYẾT AI CHAT POPUP
+// ============================================================
+let aiPopupOpen = false;
+
+function renderAiChat() {
+  const body = document.getElementById("ai-popup-body");
+  if (!body) return;
+  body.innerHTML = state.people.map(p => {
+    const lines = buildAiLines(p.id);
     return `
       <div class="ai-card" style="--p-color:${p.color}">
         <div class="ai-avatar">🧊</div>
@@ -281,6 +285,17 @@ function renderAiBoard() {
       </div>
     `;
   }).join("");
+}
+
+function openAiChat() {
+  renderAiChat();
+  document.getElementById("ai-popup").hidden = false;
+  aiPopupOpen = true;
+}
+
+function closeAiChat() {
+  document.getElementById("ai-popup").hidden = true;
+  aiPopupOpen = false;
 }
 
 // ============================================================
@@ -648,7 +663,6 @@ function renderSchedule() {
 
 function renderAll() {
   renderPeople();
-  renderAiBoard();
   renderLedger();
   renderTaskList();
   renderPercentBars();
@@ -750,12 +764,22 @@ async function submitTaskForm() {
   }
 }
 
+const aiFab = document.getElementById("ai-fab");
+aiFab.addEventListener("click", openAiChat);
+document.getElementById("ai-popup-close").addEventListener("click", closeAiChat);
+document.getElementById("ai-popup").addEventListener("click", e => {
+  if (e.target.id === "ai-popup") closeAiChat();
+});
+
 document.getElementById("profile-close").addEventListener("click", closeProfile);
 document.getElementById("profile-overlay").addEventListener("click", e => {
   if (e.target.id === "profile-overlay") closeProfile();
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && openProfileId) closeProfile();
+  if (e.key === "Escape") {
+    if (aiPopupOpen) closeAiChat();
+    else if (openProfileId) closeProfile();
+  }
 });
 
 showFormBtn.addEventListener("click", () => openTaskForm(null));

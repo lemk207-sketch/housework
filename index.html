@@ -22,11 +22,8 @@
         <strong>Đang rảnh 🌿</strong>: có thể nhận thêm việc (mặc định 50–70%) — hệ thống ghi nhận phần "làm dư"
         để <em>bù vào những lúc thiếu hụt</em> của cả nhà.
       </p>
-      <p class="hint">Bấm vào một người để xem hôm nay/tuần này đã làm được bao nhiêu % và lời khuyên từ Tuyết AI 🧊.</p>
+      <p class="hint">Bấm vào một người để xem hôm nay/tuần này đã làm được bao nhiêu %. Dùng nút <strong>🧊 Tuyết AI</strong> ở góc dưới bên phải để xem gợi ý cho cả nhà.</p>
       <div class="people-grid" id="people-grid"></div>
-
-      <h3>🧊 Tuyết AI gợi ý hôm nay</h3>
-      <div class="ai-board" id="ai-board"></div>
 
       <h3>📒 Sổ nợ chung</h3>
       <p class="hint">Đơn vị: "tuần làm việc nhà bình thường". Số dương = đã làm dư (đang được ghi công), số âm = đang nợ.</p>
@@ -115,6 +112,18 @@
   <footer>
     <p id="footer-status">Đang kết nối tới server…</p>
   </footer>
+
+  <button class="ai-fab" id="ai-fab" hidden aria-label="Tuyết AI">🧊 <span>Tuyết AI</span></button>
+
+  <div class="ai-popup" id="ai-popup" hidden>
+    <div class="ai-popup-inner">
+      <div class="ai-popup-header">
+        <span class="ai-popup-title">🧊 Tuyết AI gợi ý hôm nay</span>
+        <button type="button" class="ai-popup-close" id="ai-popup-close" aria-label="Đóng">✕</button>
+      </div>
+      <div class="ai-popup-body" id="ai-popup-body"></div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
