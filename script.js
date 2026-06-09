@@ -841,15 +841,15 @@ function openTaskForm(taskId) {
     populatePersonSelect(state.people[0] ? state.people[0].id : "");
   }
 
-  taskForm.hidden = false;
-  showFormBtn.hidden = true;
+  document.getElementById("task-modal").hidden = false;
+  document.body.classList.add("task-modal-open");
   document.getElementById("f-name").focus();
 }
 
 function closeTaskForm() {
   editingTaskId = null;
-  taskForm.hidden = true;
-  showFormBtn.hidden = false;
+  document.getElementById("task-modal").hidden = true;
+  document.body.classList.remove("task-modal-open");
   taskForm.reset();
 }
 
@@ -892,6 +892,11 @@ document.getElementById("ai-popup").addEventListener("click", e => {
   if (e.target.id === "ai-popup") closeAiChat();
 });
 
+document.getElementById("f-modal-close").addEventListener("click", closeTaskForm);
+document.getElementById("task-modal").addEventListener("click", e => {
+  if (e.target.id === "task-modal") closeTaskForm();
+});
+
 document.getElementById("profile-close").addEventListener("click", closeProfile);
 document.getElementById("profile-overlay").addEventListener("click", e => {
   if (e.target.id === "profile-overlay") closeProfile();
@@ -900,6 +905,7 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
     if (aiPopupOpen) closeAiChat();
     else if (openProfileId) closeProfile();
+    else if (!document.getElementById("task-modal").hidden) closeTaskForm();
   }
 });
 

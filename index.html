@@ -44,45 +44,6 @@
       <div class="task-list" id="task-list"></div>
 
       <button class="btn-add" id="btn-show-form" disabled>Đang tải dữ liệu…</button>
-
-      <form class="task-form" id="task-form" hidden>
-        <h3 id="task-form-title">Thêm việc mới</h3>
-        <input type="hidden" id="f-task-id">
-
-        <label>Tên việc
-          <input type="text" id="f-name" placeholder="VD: Tưới cây" required>
-        </label>
-
-        <label>Độ mệt
-          <select id="f-weight">
-            <option value="1">Nhẹ (1 điểm)</option>
-            <option value="2">Vừa (2 điểm)</option>
-            <option value="4">Nặng (4 điểm)</option>
-          </select>
-        </label>
-
-        <fieldset>
-          <legend>Ngày trong tuần</legend>
-          <div class="day-checks" id="f-days"></div>
-        </fieldset>
-
-        <label>Buổi / khung giờ rảnh
-          <select id="f-block">
-            <option value="morning">🌤️ Buổi sáng</option>
-            <option value="afternoon">🍳 Buổi chiều</option>
-            <option value="evening">🌙 Buổi tối</option>
-          </select>
-        </label>
-
-        <label>Người phụ trách
-          <select id="f-person"></select>
-        </label>
-
-        <div class="form-actions">
-          <button type="submit" class="btn-primary" id="f-submit">Thêm việc</button>
-          <button type="button" class="btn-secondary" id="f-cancel">Huỷ</button>
-        </div>
-      </form>
     </section>
 
     <!-- ===== Tỉ trọng % ===== -->
@@ -137,6 +98,46 @@
       </div>
       <div class="ai-tabs" id="ai-tabs"></div>
       <div class="ai-popup-body" id="ai-popup-body"></div>
+    </div>
+  </div>
+
+  <div class="task-modal" id="task-modal" hidden>
+    <div class="task-modal-inner">
+      <div class="task-modal-header">
+        <h3 id="task-form-title">Thêm việc mới</h3>
+        <button type="button" id="f-modal-close" class="task-modal-close" aria-label="Đóng">✕</button>
+      </div>
+      <form class="task-form" id="task-form">
+        <input type="hidden" id="f-task-id">
+        <label>Tên việc
+          <input type="text" id="f-name" placeholder="VD: Tưới cây" required>
+        </label>
+        <label>Độ mệt
+          <select id="f-weight">
+            <option value="1">Nhẹ (1 điểm)</option>
+            <option value="2">Vừa (2 điểm)</option>
+            <option value="4">Nặng (4 điểm)</option>
+          </select>
+        </label>
+        <fieldset>
+          <legend>Ngày trong tuần</legend>
+          <div class="day-checks" id="f-days"></div>
+        </fieldset>
+        <label>Buổi / khung giờ rảnh
+          <select id="f-block">
+            <option value="morning">🌤️ Buổi sáng</option>
+            <option value="afternoon">🍳 Buổi chiều</option>
+            <option value="evening">🌙 Buổi tối</option>
+          </select>
+        </label>
+        <label>Người phụ trách
+          <select id="f-person"></select>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="f-submit">Thêm việc</button>
+          <button type="button" class="btn-secondary" id="f-cancel">Huỷ</button>
+        </div>
+      </form>
     </div>
   </div>
 
