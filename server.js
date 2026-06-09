@@ -299,11 +299,17 @@ const STATIC_FILES = {
   "/index.html": "index.html",
   "/style.css": "style.css",
   "/script.js": "script.js",
+  "/bg.avif": "bg.avif",
 };
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
+  ".avif": "image/avif",
+  ".jpg":  "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png":  "image/png",
+  ".webp": "image/webp",
 };
 
 function sendJson(res, status, obj) {
