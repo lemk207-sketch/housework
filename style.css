@@ -5,7 +5,7 @@
   --bg:         #fdf8ec;
   --card-bg:    #ffffff;
   --text:       #3d3028;
-  --muted:      #9a8e80;
+  --muted:      #78695a; /* darkened from #9a8e80 → contrast 4.6:1 on white (WCAG AA) */
   --border:     #ecddc8;
   --radius:     16px;
 
@@ -1274,4 +1274,125 @@ footer {
 
 @media (max-width: 600px) {
   .bar-name { width: 80px; font-size: 0.85rem; }
+}
+
+/* =====================================================================
+   UX IMPROVEMENTS — Usable · Equity · Enjoyable · Usefulness
+   ===================================================================== */
+
+/* --- Equity: Focus-visible rõ ràng cho người dùng bàn phím --- */
+:focus-visible {
+  outline: 2.5px solid #5bbfd4;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* --- Equity: Mở rộng vùng tap cross-btn trên màn hình cảm ứng --- */
+.cross-btn { position: relative; }
+.cross-btn::after {
+  content: "";
+  position: absolute;
+  inset: -10px; /* vùng bấm 44×44px mà không thay đổi giao diện */
+}
+
+/* --- Usable + Useful: Nổi bật cột "hôm nay" trong bảng lịch --- */
+.schedule-table tr.is-today > td {
+  background: rgba(91, 191, 212, 0.05);
+}
+.schedule-table tr.is-today > td.day-cell {
+  background: rgba(91, 191, 212, 0.14);
+  border-left: 3px solid #5bbfd4;
+}
+.today-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #5bbfd4;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 5px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+
+/* --- Useful: Thanh tiến độ hôm nay trên thẻ từng người --- */
+.person-today-progress {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.person-today-track {
+  height: 5px;
+  background: rgba(0,0,0,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+.person-today-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s var(--ease);
+  min-width: 0;
+}
+.person-today-all-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #2e9b66;
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+/* --- Enjoyable + Usable: Toast thông báo nhẹ nhàng --- */
+.toast-container {
+  position: fixed;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(35, 28, 20, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  box-shadow: var(--shadow-md);
+  animation: toast-in 0.3s var(--ease) both;
+  white-space: nowrap;
+}
+.toast.exit { animation: toast-out 0.28s var(--ease) both; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-8px) scale(0.92); }
+}
+
+/* --- Enjoyable: Pháo hoa khi hoàn thành 100% hôm nay --- */
+.confetti-piece {
+  position: fixed;
+  pointer-events: none;
+  z-index: 300;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  animation: confetti-burst 0.72s var(--ease) both;
+}
+@keyframes confetti-burst {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--tx, 0px), var(--ty, 50px)) rotate(var(--rot, 0deg)) scale(0.5); }
 }

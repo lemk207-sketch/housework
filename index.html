@@ -79,12 +79,12 @@
   </div>
 
   <footer>
-    <p id="footer-status">Đang kết nối tới server…</p>
+    <p id="footer-status" aria-live="polite">Đang kết nối tới server…</p>
   </footer>
 
   <button class="ai-fab" id="ai-fab" hidden aria-label="Tuyết AI">🧊 <span>Tuyết AI</span></button>
 
-  <div class="ai-popup" id="ai-popup" hidden>
+  <div class="ai-popup" id="ai-popup" hidden role="dialog" aria-modal="true" aria-label="Tuyết AI — Gợi ý cho cả nhà">
     <div class="ai-popup-inner">
       <div class="ai-popup-header">
         <div class="ai-popup-header-left">
@@ -101,7 +101,7 @@
     </div>
   </div>
 
-  <div class="task-modal" id="task-modal" hidden>
+  <div class="task-modal" id="task-modal" hidden role="dialog" aria-modal="true" aria-labelledby="task-form-title">
     <div class="task-modal-inner">
       <div class="task-modal-header">
         <h3 id="task-form-title">Thêm việc mới</h3>
@@ -140,6 +140,8 @@
       </form>
     </div>
   </div>
+
+  <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
   <script src="script.js"></script>
 </body>

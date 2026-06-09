@@ -21,6 +21,45 @@ let state = { people: [], tasks: [], completions: {}, weekStart: "", weekDates: 
 let editingTaskId = null;   // id việc đang sửa, null = đang thêm mới
 let openModePanel = null;   // { personId, mode } — panel kích hoạt chế độ đang mở
 let doerPickerFor = null;   // { date, taskId } — đang mở bảng chọn "ai đã làm việc này"
+let taskModalTrigger = null; // element đã focus trước khi mở modal, để trả focus về sau khi đóng
+
+// ============================================================
+// TIỆN ÍCH UX — Toast + Confetti
+// ============================================================
+function showToast(msg, duration = 2400) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("exit");
+    el.addEventListener("animationend", () => el.remove(), { once: true });
+  }, duration);
+}
+
+function triggerConfetti(rect) {
+  const colors = ["#5bbfd4", "#e8788e", "#d4a832", "#82c87a", "#f0b8b8", "#c9e9b0"];
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < 20; i++) {
+    const el = document.createElement("div");
+    el.className = "confetti-piece";
+    const angle = (i / 20) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 30 + Math.random() * 60;
+    el.style.cssText = [
+      `left:${cx}px`, `top:${cy}px`,
+      `background:${colors[i % colors.length]}`,
+      `--tx:${(Math.cos(angle) * dist).toFixed(1)}px`,
+      `--ty:${(Math.sin(angle) * dist).toFixed(1)}px`,
+      `--rot:${Math.floor(Math.random() * 360)}deg`,
+      `animation-delay:${(Math.random() * 0.12).toFixed(2)}s`,
+    ].join(";");
+    document.body.appendChild(el);
+    el.addEventListener("animationend", () => el.remove(), { once: true });
+  }
+}
 
 async function api(path, options) {
   const res = await fetch(path, options);
@@ -616,6 +655,30 @@ function renderPeople() {
       ? renderModePanel(p, openModePanel.mode)
       : "";
 
+    // Thanh tiến độ hôm nay (Useful: nhìn ngay biết ai làm xong chưa)
+    const todayTasksP = todayTasks(p.id);
+    const todayPts = todayTasksP.reduce((s, t) => s + t.task.weight, 0);
+    const todayDonePts = todayTasksP.reduce((s, t) => s + (t.done ? t.task.weight : 0), 0);
+    const todayPct = todayPts > 0 ? (todayDonePts / todayPts) * 100 : 0;
+    const allDoneToday = todayPts > 0 && todayDonePts >= todayPts;
+
+    let todayBarHTML;
+    if (todayPts === 0) {
+      todayBarHTML = `<div class="person-today-progress"><span>Hôm nay không có việc ✨</span></div>`;
+    } else if (allDoneToday) {
+      todayBarHTML = `
+        <div class="person-today-progress">
+          <div class="person-today-track"><div class="person-today-fill" style="width:100%;background:${p.color}"></div></div>
+          <span class="person-today-all-done">🎉 Xong hết việc hôm nay!</span>
+        </div>`;
+    } else {
+      todayBarHTML = `
+        <div class="person-today-progress">
+          <span>Hôm nay: ${todayDonePts}/${todayPts} điểm mệt (${Math.round(todayPct)}%)</span>
+          <div class="person-today-track"><div class="person-today-fill" style="width:${todayPct}%;background:${p.color}"></div></div>
+        </div>`;
+    }
+
     return `
       <div class="person-card" style="--p-color:${p.color}" data-action="open-profile" data-person="${p.id}">
         <div class="person-head">
@@ -625,14 +688,21 @@ function renderPeople() {
           </div>
           <span class="mode-badge ${p.mode}">${modeLabel[p.mode]}</span>
         </div>
-        <p class="person-open-hint">👆 Bấm để xem hôm nay/tuần này đã làm bao nhiêu % &amp; lời khuyên từ Tuyết AI</p>
+        <p class="person-open-hint">👆 Bấm để xem tiến độ chi tiết &amp; lời khuyên từ Tuyết AI</p>
         <div class="mode-buttons">
-          <button data-action="mode" data-person="${p.id}" data-mode="normal" class="${p.mode === "normal" ? "active normal" : ""}">Bình thường</button>
-          <button data-action="mode" data-person="${p.id}" data-mode="exam"   class="${p.mode === "exam"   ? "active exam"   : ""}">📚 Bận thi</button>
-          <button data-action="mode" data-person="${p.id}" data-mode="free"   class="${p.mode === "free"   ? "active free"   : ""}">🌿 Đang rảnh</button>
+          <button data-action="mode" data-person="${p.id}" data-mode="normal"
+            class="${p.mode === "normal" ? "active normal" : ""}"
+            aria-pressed="${p.mode === "normal"}">Bình thường</button>
+          <button data-action="mode" data-person="${p.id}" data-mode="exam"
+            class="${p.mode === "exam" ? "active exam" : ""}"
+            aria-pressed="${p.mode === "exam"}">📚 Bận thi</button>
+          <button data-action="mode" data-person="${p.id}" data-mode="free"
+            class="${p.mode === "free" ? "active free" : ""}"
+            aria-pressed="${p.mode === "free"}">🌿 Đang rảnh</button>
         </div>
         ${panel}
         <p class="person-status">${statusLine}</p>
+        ${todayBarHTML}
       </div>
     `;
   }).join("");
@@ -769,14 +839,17 @@ function renderSchedule() {
             ${helperBadge}
             <button type="button" class="cross-btn ${done ? "done" : ""}" style="--cross-color:${color}"
               data-action="toggle-done" data-date="${dateStr}" data-task="${t.id}"
-              title="${done ? `Đã xong${doer ? " — " + doer.name : ""} — bấm để bỏ đánh dấu` : "Bấm để đánh dấu đã xong"}">${done ? "✓" : ""}</button>
+              aria-label="${done ? `${t.name} đã xong${doer ? " — " + doer.name : ""} — bấm để bỏ` : `Đánh dấu ${t.name} đã xong`}"
+              aria-pressed="${done}">${done ? "✓" : ""}</button>
             ${picker}
           </div>
         `;
       }).join("");
       return `<td>${chips}</td>`;
     }).join("");
-    return `<tr><td class="day-cell">${DAY_FULL[dayIdx]}<br><span class="day-date">${fmtDateLabel(dateStr)}</span></td>${cells}</tr>`;
+    const isToday = dateStr === todayIso();
+    const todayMark = isToday ? `<span class="today-badge">Hôm nay</span>` : "";
+    return `<tr${isToday ? ' class="is-today"' : ''}><td class="day-cell">${DAY_FULL[dayIdx]}${todayMark}<br><span class="day-date">${fmtDateLabel(dateStr)}</span></td>${cells}</tr>`;
   }).join("");
 
   table.innerHTML = head + rows;
@@ -816,6 +889,7 @@ function openTaskForm(taskId) {
     alert("Dữ liệu đang tải, vui lòng đợi một chút rồi thử lại nhé.");
     return;
   }
+  taskModalTrigger = document.activeElement; // lưu để trả focus về sau khi đóng (Equity)
   editingTaskId = taskId;
   const title = document.getElementById("task-form-title");
   const submitBtn = document.getElementById("f-submit");
@@ -851,6 +925,7 @@ function closeTaskForm() {
   document.getElementById("task-modal").hidden = true;
   document.body.classList.remove("task-modal-open");
   taskForm.reset();
+  if (taskModalTrigger) { taskModalTrigger.focus(); taskModalTrigger = null; }
 }
 
 async function submitTaskForm() {
@@ -864,6 +939,7 @@ async function submitTaskForm() {
   if (days.length === 0) { alert("Chọn ít nhất một ngày trong tuần nhé."); return; }
 
   const payload = { name, weight, block, personId, days };
+  const wasEditing = !!editingTaskId;
   try {
     if (editingTaskId) {
       await api(`/api/tasks/${editingTaskId}`, {
@@ -880,6 +956,7 @@ async function submitTaskForm() {
     }
     closeTaskForm();
     await refresh();
+    showToast(wasEditing ? "✓ Đã lưu thay đổi!" : "✓ Đã thêm việc nhà mới!");
   } catch (err) {
     alert("Không lưu được: " + err.message);
   }
@@ -929,6 +1006,7 @@ document.addEventListener("click", async e => {
         await api(`/api/people/${personId}/normal`, { method: "POST" });
         openModePanel = null;
         await refresh();
+        showToast("✓ Đã chuyển về chế độ Bình thường.");
       } else if (openModePanel && openModePanel.personId === personId && openModePanel.mode === mode) {
         openModePanel = null;
         renderPeople();
@@ -951,6 +1029,8 @@ document.addEventListener("click", async e => {
       });
       openModePanel = null;
       await refresh();
+      const modeMsg = mode === "exam" ? "📚 Chế độ Bận thi đã được ghi nhận!" : "🌿 Chế độ Đang rảnh đã được ghi nhận!";
+      showToast(modeMsg);
       return;
     }
 
@@ -962,6 +1042,7 @@ document.addEventListener("click", async e => {
       if (confirm("Xoá việc này khỏi danh sách? (cả lịch sử đánh dấu đã xong của việc này cũng sẽ mất)")) {
         await api(`/api/tasks/${btn.dataset.task}`, { method: "DELETE" });
         await refresh();
+        showToast("🗑 Đã xoá việc nhà.");
       }
       return;
     }
@@ -978,6 +1059,7 @@ document.addEventListener("click", async e => {
           body: JSON.stringify({ date, taskId }),
         });
         await refresh();
+        showToast("○ Đã bỏ đánh dấu hoàn thành.");
         return;
       }
 
@@ -999,12 +1081,24 @@ document.addEventListener("click", async e => {
         body: JSON.stringify({ date, taskId, doneBy }),
       });
       await refresh();
-      const newBtn = document.querySelector(
-        `.cross-btn[data-date="${date}"][data-task="${taskId}"]`
-      );
+
+      // Kiểm tra xem người này đã xong hết việc hôm nay chưa → confetti (Enjoyable)
+      const doerPerson = personById(doneBy);
+      const doerTodayTasks = todayTasks(doneBy);
+      const allDoneNow = doerTodayTasks.length > 0 && doerTodayTasks.every(t => t.done);
+
+      const newBtn = document.querySelector(`.cross-btn[data-date="${date}"][data-task="${taskId}"]`);
       if (newBtn) {
         newBtn.classList.add("just-toggled");
         newBtn.addEventListener("animationend", () => newBtn.classList.remove("just-toggled"), { once: true });
+        if (allDoneNow) {
+          triggerConfetti(newBtn.getBoundingClientRect());
+          showToast(`🎉 ${doerPerson ? doerPerson.name : ""} xong hết việc hôm nay rồi!`, 3200);
+        } else {
+          showToast("✓ Đã đánh dấu xong!");
+        }
+      } else {
+        showToast(allDoneNow && doerPerson ? `🎉 ${doerPerson.name} xong hết việc hôm nay rồi!` : "✓ Đã đánh dấu xong!");
       }
       return;
     }
