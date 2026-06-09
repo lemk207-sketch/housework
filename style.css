@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --nam-color:  #e8788e;
   --su-color:   #5bbfd4;
   --xoai-color: #d4a832;
@@ -46,7 +46,7 @@ body {
 
 .topbar h1 {
   margin: 0 0 6px;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 2.5rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -58,7 +58,7 @@ body {
 }
 .subtitle {
   margin: 0;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 1rem;
   font-weight: 400;
   color: var(--muted);
@@ -86,7 +86,7 @@ main {
 
 .card h2 {
   margin-top: 0;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-weight: 600;
   font-size: 1.2rem;
   letter-spacing: 0.02em;
@@ -104,13 +104,13 @@ main {
   box-shadow: 0 0 0 4px rgba(232, 120, 142, 0.14);
 }
 .card h3 {
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-weight: 500;
   letter-spacing: 0.01em;
   margin-bottom: 8px;
 }
 
-/* ----- avatar: chữ cái đầu trong vòng tròn gradient, thay cho chấm màu phẳng ----- */
+/* ----- avatar: chá»¯ cÃ¡i Ä‘áº§u trong vÃ²ng trÃ²n gradient, thay cho cháº¥m mÃ u pháº³ng ----- */
 .avatar {
   display: inline-flex;
   align-items: center;
@@ -131,7 +131,7 @@ main {
 .avatar-lg { width: 64px; height: 64px; font-size: 1.5rem; }
 .avatar-xl { width: 92px; height: 92px; font-size: 2rem; }
 
-/* ----- donut: vòng tròn % bằng conic-gradient thuần CSS, tái dùng nhiều nơi ----- */
+/* ----- donut: vÃ²ng trÃ²n % báº±ng conic-gradient thuáº§n CSS, tÃ¡i dÃ¹ng nhiá»u nÆ¡i ----- */
 .donut {
   --pct: 0;
   --donut-color: #bbb;
@@ -213,7 +213,7 @@ code {
 .person-card .person-name { font-weight: 700; font-size: 1.05rem; }
 .mode-badge {
   display: inline-block;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -307,7 +307,7 @@ code {
   margin: 6px 0 0;
 }
 
-/* ----- Tuyết AI floating button ----- */
+/* ----- Tuyáº¿t AI floating button ----- */
 .ai-fab {
   position: fixed;
   bottom: 24px;
@@ -321,7 +321,7 @@ code {
   border: none;
   background: linear-gradient(135deg, #5bbfd4 0%, #e8788e 55%, #d4a832 100%);
   color: white;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 1rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -332,7 +332,7 @@ code {
 .ai-fab:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(91, 191, 212, 0.46); }
 .ai-fab[hidden] { display: none; }
 
-/* ----- Tuyết AI chat popup ----- */
+/* ----- Tuyáº¿t AI chat popup ----- */
 .ai-popup {
   position: fixed;
   inset: 0;
@@ -375,7 +375,7 @@ code {
 .ai-popup-header-left { display: flex; align-items: center; gap: 10px; }
 .ai-popup-icon { font-size: 1.8rem; line-height: 1; }
 .ai-popup-title {
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -403,7 +403,7 @@ code {
 }
 .ai-popup-close:hover { background: rgba(0,0,0,0.16); }
 
-/* ----- AI tabs (chọn từng người) ----- */
+/* ----- AI tabs (chá»n tá»«ng ngÆ°á»i) ----- */
 .ai-tabs {
   display: flex;
   gap: 8px;
@@ -506,7 +506,7 @@ code {
 .chat-prog-stats strong { color: var(--text); }
 .chat-pct { font-weight: 800; color: var(--text); margin-left: auto; font-size: 0.9rem; }
 
-/* ----- Danh sách việc trong bubble ----- */
+/* ----- Danh sÃ¡ch viá»‡c trong bubble ----- */
 .chat-task-list { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
 .chat-task-item {
   display: flex;
@@ -525,12 +525,12 @@ code {
 .chat-task-name { flex: 1; }
 .chat-task-pts { color: var(--muted); font-size: 0.75rem; flex-shrink: 0; }
 
-/* ----- Nhãn sổ nợ ----- */
+/* ----- NhÃ£n sá»• ná»£ ----- */
 .chat-debt   { color: #d8473a; font-weight: 700; }
 .chat-credit { color: #2e9b66; font-weight: 700; }
 .chat-even   { color: var(--muted); font-weight: 700; }
 
-/* ----- Tuyết AI cards (dùng trong popup và profile) ----- */
+/* ----- Tuyáº¿t AI cards (dÃ¹ng trong popup vÃ  profile) ----- */
 .ai-card {
   display: flex;
   gap: 10px;
@@ -566,7 +566,7 @@ code {
 .ai-box .ai-line { font-size: 0.88rem; margin: 0 0 6px; }
 .ai-box .ai-line:last-child { margin-bottom: 0; }
 
-/* ----- Trang Hồ sơ cá nhân — "giao diện mới" toàn màn hình khi bấm vào 1 người ----- */
+/* ----- Trang Há»“ sÆ¡ cÃ¡ nhÃ¢n â€” "giao diá»‡n má»›i" toÃ n mÃ n hÃ¬nh khi báº¥m vÃ o 1 ngÆ°á»i ----- */
 body.profile-open { overflow: hidden; }
 .profile-page {
   position: fixed;
@@ -775,7 +775,7 @@ body.profile-open { overflow: hidden; }
   background: #fffdf5;
   border-radius: 12px;
   padding: 11px 16px;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-size: 0.96rem;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -787,7 +787,7 @@ body.profile-open { overflow: hidden; }
 .btn-add:hover:not(:disabled) { background: #f7f2e4; border-color: #b8ad94; box-shadow: var(--shadow-xs); }
 .btn-add:disabled { cursor: progress; opacity: 0.7; }
 
-/* ----- skeleton loading (thay cho chữ "Đang tải dữ liệu…" khô khan) ----- */
+/* ----- skeleton loading (thay cho chá»¯ "Äang táº£i dá»¯ liá»‡uâ€¦" khÃ´ khan) ----- */
 .skeleton {
   position: relative;
   overflow: hidden;
@@ -868,7 +868,7 @@ body.profile-open { overflow: hidden; }
   border: none;
   border-radius: 10px;
   padding: 9px 20px;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-weight: 500;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
@@ -894,7 +894,7 @@ body.profile-open { overflow: hidden; }
 .weights-table th { color: var(--muted); font-weight: 600; }
 .weights-table td.weight-cell { text-align: center; font-weight: 600; }
 
-/* ----- percent donuts (chiều sâu trực quan trước khi đi vào bar so sánh) ----- */
+/* ----- percent donuts (chiá»u sÃ¢u trá»±c quan trÆ°á»›c khi Ä‘i vÃ o bar so sÃ¡nh) ----- */
 .percent-donuts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1027,12 +1027,12 @@ body.profile-open { overflow: hidden; }
   text-align: left;
   position: sticky;
   top: 0;
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
 .schedule-table td.day-cell {
-  font-family: 'Fredoka', 'Nunito', sans-serif;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
   font-weight: 600;
   white-space: nowrap;
   background: #faf6ec;
@@ -1103,11 +1103,11 @@ body.profile-open { overflow: hidden; }
 .task-chip { flex-wrap: wrap; }
 .task-chip.picking { box-shadow: 0 4px 14px rgba(0,0,0,0.16); }
 
-/* Avatar nhỏ gắn lên chip khi người THỰC SỰ làm khác người phụ trách mặc định */
+/* Avatar nhá» gáº¯n lÃªn chip khi ngÆ°á»i THá»°C Sá»° lÃ m khÃ¡c ngÆ°á»i phá»¥ trÃ¡ch máº·c Ä‘á»‹nh */
 .doer-badge { display: inline-flex; flex-shrink: 0; }
 .doer-badge .avatar { box-shadow: 0 0 0 2px rgba(255,255,255,0.85); }
 
-/* Bảng nhỏ "Ai đã làm việc này?" — mở ngay tại chỗ trong chip khi đánh dấu xong */
+/* Báº£ng nhá» "Ai Ä‘Ã£ lÃ m viá»‡c nÃ y?" â€” má»Ÿ ngay táº¡i chá»— trong chip khi Ä‘Ã¡nh dáº¥u xong */
 .doer-picker {
   flex-basis: 100%;
   margin-top: 6px;
